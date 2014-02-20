@@ -85,3 +85,4 @@ GAME_LABELSPACE = 30 # Space between the tops of indicators for life etc.
 GAME_LABELOFFSET = 12 # Shift the labels to center them WRT the life entry box
 GAME_DECKROWS = 15 # Number of cards to display in a column when showing an
                    # entire deck.
+

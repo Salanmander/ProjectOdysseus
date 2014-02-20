@@ -6,6 +6,7 @@ from Tkinter import *
 from socket import *
 import time
 import random
+import json
 
 from protocolDefs import *
 
@@ -32,7 +33,52 @@ ADDR = (HOST, PORT)
 #setList = ['SHM','SHM','SHM']
 setList = ['SHM']
 
-print(MARK)
+
+class CardDataManager():
+    def __init__(self):
+        # Set up card lists
+        f = open("Cards/AllSets.json",'r')
+        s = f.read()
+        self.allSets = json.loads(s)
+        self.sets = dict()
+        self.allCards = dict() # dict of cards by multiverseID
+
+        for setCode in setList:
+            if not setCode in self.sets:
+                self.loadSet(setCode)
+
+    def loadSet(self,setCode):
+        setDict = dict()
+        setDict['booster'] = self.allSets[setCode]['booster']
+        setDict['mythic rare'] = dict()
+        setDict['rare'] = dict()
+        setDict['uncommon'] = dict()
+        setDict['common'] = dict()
+        setDict['land'] = dict()
+
+        for card in self.allSets[setCode]['cards']:
+            # add set field to all cards, for easy reference later
+            card['set'] = setCode
+            # Change multiverseID to a 6-character string
+            card['multiverseid'] = str(card['multiverseid']).zfill(6)
+            self.allCards[card['multiverseid']] = card
+            if card['rarity'] == 'Basic Land':
+                try:
+                    name = card['name'].lower()
+                    if name in setDict['land']:
+                        setDict['land'][name].append(card)
+                    else:
+                        setDict['land'][name] = [card]
+                except:
+                    "Oh no! Error in adding basic lands."
+            else:
+                try:
+                    # key is the lowercase of the rarity
+                    setDict[card['rarity'].lower()].append(card)
+                except:
+                    "Oh no! Error in adding cards."
+
+        self.sets[setCode] = setDict
 
 class Client():
     def __init__(self, socket, IP):
@@ -50,10 +96,38 @@ class Client():
         self.prev = None
         self.challenging = None # This will be an ID
         
-        self.deck = []
+        self.deck = Deck()
         self.life = 20
         self.handSize = 0
         self.opponent = None # This will be a valid client object
+
+class Deck():
+    def __init__(self):
+        self.cards = []
+
+    def remove(self,cardCode):
+        multiverseID = cardCode[3:] # it has the set in front, and we don't care
+        for card in self.cards:
+            if card['multiverseid'] == multiverseID:
+                self.cards.remove(card)
+                break
+
+    def insert(self,index,cardCode):
+        multiverseID = cardCode[3:]
+        self.cards.insert(index,guru.allCards[multiverseID])
+
+    def append(self,cardCode):
+        multiverseID = cardCode[3:]
+        self.cards.append(guru.allCards[multiverseID])
+
+    def shuffle(self):
+        random.shuffle(self.cards)
+
+    def pop(self, index):
+        return self.cards.pop(index)
+
+    def empty(self):
+        self.cards = []
 
 class MainMenu(Menu):
     def __init__(self, master):
@@ -106,47 +180,79 @@ class Room(Frame):
         self.list.pack(side=TOP)
 
 class Pack():
-    def __init__(self):
+    def __init__(self,setCode):
         self.cards = []
+        boosterFormat = guru['setCode']['booster']
 
-        # Create list of cards in pack
-        # Rare
-        self.cards.append(random.choice(rares))
-
-        # 3 Uncommons
-        while len(self.cards) < 4:
-            card = random.choice(uncommons)
-            if not card in self.cards:
+        makeFoil = random.random() < 0.25
+        removeCommon = makeFoil
+        for slot in boosterFormat:
+            if slot == 'common':
+                if removeCommon:
+                    removeCommon = False
+                else:
+                    card = random.choice(guru.sets[setCode]['common'])
+                    self.cards.append(card)
+            elif slot in ("uncommon","rare","mythic rare"):
+                card = random.choice(guru.sets[setCode][slot])
                 self.cards.append(card)
+            #Need to hard-code in probability of mythic rare, because it's not
+            # in the json database
+            elif slot == 'land':
+                landType = random.choice(guru.sets[setCode]['land'].values())
+                card = random.choice(landType)
+                self.cards.append(card)
+            elif isinstance(slot,list) and 'mythic rare' in slot:
+                mythic = random.random() < 0.125 # 1 in 8 rares is mythic
+                if mythic:
+                    card = random.choice(guru.sets[setCode]['mythic'])
+                    self.cards.append(card)
+                else:                    
+                    card = random.choice(guru.sets[setCode]['rare'])
+                    self.cards.append(card)
+            else:
+                #un-implemented types in the booster:
+                # marketing, checklist, double faced
+                pass
 
-        # Commons: use print runs
-        i = 0
-        usedRuns = 0
-        while i<len(runsFormat):
-            # Grab the next run information
-            runChoices = int(runsFormat[i])
-            runCardNum = int(runsFormat[i+2:i+4])
-            i = i+5 # start of next run information chunk
+        if makeFoil:
+            card = random.choice(guru.allSets[setCode]['cards'])
+            self.cards.append(card)
+            
 
-            # Pick a random run from our first runChoices unused
-            # options, then update the number of used options
-            runIndex = random.randint(0,runChoices-1) + usedRuns
-            run = runs[runIndex]
-            usedRuns = usedRuns + runChoices
+        # Depricated code for using print runs
+##        # Commons: use print runs
+##        i = 0
+##        usedRuns = 0
+##        while i<len(runsFormat):
+##            # Grab the next run information
+##            runChoices = int(runsFormat[i])
+##            runCardNum = int(runsFormat[i+2:i+4])
+##            i = i+5 # start of next run information chunk
+##
+##            # Pick a random run from our first runChoices unused
+##            # options, then update the number of used options
+##            runIndex = random.randint(0,runChoices-1) + usedRuns
+##            run = runs[runIndex]
+##            usedRuns = usedRuns + runChoices
+##
+##            # Pick a random starting spot in that run
+##            cardIndex = random.randint(0,len(run)-1)
+##
+##            # Add cards
+##            for j in range(runCardNum):
+##                # Loop if you need to
+##                if cardIndex >= len(run):
+##                    cardIndex = 0
+##                self.cards.append(run[cardIndex])
+##                cardIndex = cardIndex + 1
 
-            # Pick a random starting spot in that run
-            cardIndex = random.randint(0,len(run)-1)
-
-            # Add cards
-            for j in range(runCardNum):
-                # Loop if you need to
-                if cardIndex >= len(run):
-                    cardIndex = 0
-                self.cards.append(run[cardIndex])
-                cardIndex = cardIndex + 1
-
-    def remove(self, card):
-        self.cards.remove(card)
+    def remove(self, cardCode):
+        multiverseID = cardCode[3:] # it has the set in front, and we don't care
+        for card in self.cards:
+            if card['multiverseid'] == multiverseID:
+                self.cards.remove(card)
+                break
 
     def shuffle(self):
         random.shuffle(self.cards)
@@ -154,7 +260,9 @@ class Pack():
     def toPackList(self):
         data = PACKLIST
         for card in self.cards:
-            data = data + card
+            data = data + card['set']
+            # use 6 digits for all IDs
+            data = data + card['multiverseid']
         return data
 
                 
@@ -352,14 +460,14 @@ class TopWindow(Tk):
 
 
         elif data[0:2] == DECKLIST:
-            client.deck = []
+            client.deck.empty()
             data = data[2:]
             while data:
-                client.deck.append(data[0:4])
-                data = data[4:]
+                client.deck.append(data[0:9])
+                data = data[9:]
 
             # We'll never want the deck in sorted order
-            random.shuffle(client.deck)
+            client.deck.shuffle()
 
         elif data[0:2] == LANDLIST:
             data = data[2:]
@@ -373,10 +481,8 @@ class TopWindow(Tk):
                     card = random.choice(lands[landType])
                     client.deck.append(card)
 
-            print client.deck
-
             # We'll never want the deck in sorted order
-            random.shuffle(client.deck)
+            client.deck.shuffle()
 
         elif data[0:2] == DECKSIZES:
             self.game_sendDeckSizes(client)
@@ -431,15 +537,15 @@ class TopWindow(Tk):
             self.game_sendDeckSizes(client.opponent)
 
         elif data[0:2] == SHUFFLE:
-            random.shuffle(client.deck)
+            client.deck.shuffle()
 
         elif data[0:2] == VIEWDECK:
             if data[2] == "0":
-                for card in client.deck:
-                    data = data + card
+                for card in client.deck.cards:
+                    data = data + card['set'] + card['multiverseid']
             else:
-                for card in client.opponent.deck:
-                    data = data + card
+                for card in client.opponent.deck.cards:
+                    data = data + card['set'] + card['multiverseid']
             self.sendRobust(client,data)
 
         elif data[0:2] == DECKREMOVE:
@@ -580,8 +686,8 @@ class TopWindow(Tk):
 
 
     def game_sendDeckSizes(self, client):
-        data = DECKSIZES + str(len(client.deck)).zfill(3)\
-                            + str(len(client.opponent.deck)).zfill(3)
+        data = DECKSIZES + str(len(client.deck.cards)).zfill(3)\
+                            + str(len(client.opponent.deck.cards)).zfill(3)
         self.sendRobust(client,data)
 
     def game_sendHandSizes(self, client):
@@ -659,45 +765,7 @@ class TopWindow(Tk):
 
         
 
-# Set up card lists
-f = open("Cards/SHM_List.txt",'r')
-rares = []
-uncommons = []
-commons = []
-lands = [[],[],[],[],[]] # plains, island, swamp, mountain, forest
-
-# Format is <# print runs to choose from>%<# cards from run>
-# with run sets delimeted by '='
-runsFormat = "2%06=2%05"
-runs = [[],[],[],[]]
-cardNumbers = dict()
-
-line = f.readline()
-while not line == 'PRINT RUNS\n':
-    #print ("Line is " + line)
-    cardNumbers[line[5:]] = line[0:4]
-    if line[4] == 'C':
-        commons.append(line[0:4])
-    elif line[4] == 'U':
-        uncommons.append(line[0:4])
-    elif line[4] == 'R':
-        rares.append(line[0:4])
-    elif line[4] == 'L':
-        if line[5:] == 'Plains\n':
-            lands[PLAINS].append(line[0:4])
-        elif line[5:] == 'Island\n':
-            lands[ISLAND].append(line[0:4])
-        elif line[5:] == 'Swamp\n':
-            lands[SWAMP].append(line[0:4])
-        elif line[5:] == 'Mountain\n':
-            lands[MOUNTAIN].append(line[0:4])
-        elif line[5:] == 'Forest\n':
-            lands[FOREST].append(line[0:4])
-        else:
-            print("Card number "+line[0:4]+" basic land not recognized.")
-    else:
-        print("Card number "+line[0:4]+" rarity not recognized.")
-    line = f.readline()
+guru = CardDataManager()
 
 # Use to run common name with print run consistency check
 ##line = f.readline()
@@ -720,16 +788,22 @@ while not line == 'PRINT RUNS\n':
 ##print("Common numbers not found in print run:\n")
 ##for card in commons:
 ##       print(card)
-        
-line = f.readline() # Get past the PRINT RUNS line
-runNumber = 0 # Save which run we're working on
-while not line == '':
-    if line == '=\n':
-        runNumber = runNumber +1
-    else:
-        card = cardNumbers[line]
-        runs[runNumber].append(card)
-    line = f.readline()       
+
+# Code for using print runs. Left out because modern print runs
+# are no longer common knowledge.
+### Format is <# print runs to choose from>%<# cards from run>
+### with run sets delimeted by '='
+##runsFormat = "2%06=2%05"
+##runs = [[],[],[],[]]
+##line = f.readline() # Get past the PRINT RUNS line
+##runNumber = 0 # Save which run we're working on
+##while not line == '':
+##    if line == '=\n':
+##        runNumber = runNumber +1
+##    else:
+##        card = cardNumbers[line]
+##        runs[runNumber].append(card)
+##    line = f.readline()       
 
 
 root = TopWindow()

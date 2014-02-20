@@ -11,7 +11,7 @@ import random
 from protocolDefs import *
 from parameters import *
 
-class CardManager:
+class CardImageManager:
     def __init__(self):
         # Image varaibles
         self.images = dict()
@@ -1870,7 +1870,7 @@ class WaitingMenu(Menu):
 root = TopWindow()
 
 # This object holds and manipulates all the card images
-cards = CardManager()
+cards = CardImageManager()
 cards.loadCard("BACK")
 
 root.mainloop()
