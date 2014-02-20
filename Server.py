@@ -7,78 +7,7 @@ from socket import *
 import time
 import random
 
-# Data protocol tags. I'm assuming I won't need more 2 characters
-# to uniquely identify packet type. They are appended to the beginning
-# of each packet.
-
-MESSAGE = 'aa' # A text message
-ALL = 'A' # Sends to everyone, displays on all chat boxes
-WAITING = 'W' # Sends to everyone, displays in waiting/deck building rooms
-GAME = 'G' # Sends to you and opponent, displays in game
-
-PLAYERLIST = 'ab' # List of players in (a given? all?) room(s)
-NEWPLAYER = 'ac' # The name of a player that has just joined
-SETTAG = 'ad' # A player changing their tag
-SETID = 'at' # A player is telling the server what their ID # is
-LEAVE = 'ae' # A player just left
-READINESS = 'af' # A player has set their readiness state
-STARTDRAFT = 'ag' # The draft is starting
-STARTDECK = 'ah' # The deck-building stage is starting
-STARTGAME = 'ai' # A game is starting between two players
-
-NEWPLAYERORDER = 'aj' # A list of the old indeces of players in ther new order
-PACKLIST = 'ak' # A list of cards a player should add as a pack to their queue
-PICKEDCARD = 'al' # The card from a player's current pack that they picked
-
-CHALLENGE = 'am' # A challenge to a game has been issued
-DECKLIST = 'an' # A full listing of a player's deck, minus basic lands
-LANDLIST = 'ao' # A list of numbers of basic land cards in player's deck
-DECKSIZES = 'ap' # Player's deck size followed by opponent's deck size;
-           # also sent to server to request said data
-HANDSIZES = 'aq'
-CHNGHANDSIZE = 'ar' # I don't like needing to use this, but I couldn't think of
-                    # a simpler way. This simply lets the server know (+/-)
-                    # that the player's hand size has been changed by one.
-LIFE = 'as' # A player sending the server their life, or the server sending
-            # a player their opponent's life
-
-REQUESTPLAYERLIST = 'ba' # A client requesting a PLAYERLIST
-REQUESTREADINESS = 'bb' # A client requesting readiness values for all players
-
-DRAW = 'ca' #The top card of a player's deck, or a request for such
-DECKTOP = 'cb' #Tells the server to put the specified card on top of the deck
-DECKBOTTOM = 'cc'
-SHUFFLE = 'cd' #Tells the server to shuffle the player's deck
-VIEWDECK = 'ce' # First char is player: 0 for self, 1 for opponent
-                # Server adds the appropriate deck list and returns it
-DECKREMOVE = 'cf' # Tells server to remove one copy of given card from
-                    # (0/1) self or opponent's deck
-                    # NOT GUARANTEED to take card from desired position
-                    
-CARDPOSITION = 'cg' #These allow sharing of the virtual tabletop
-NEWPLAYCARD = 'ch'
-DELPLAYCARD = 'ci'
-FLIPTOGGLE = 'cj'
-TAPTOGGLE = 'ck'
-
-
-
-
-# This is a single character used as a delimeter in sent messages.
-# It can't appear in strings that will be sent across the network.
-MARK = '='
-# This is the mark of the end of a packet. I've decided it's
-# sufficiently unlikely to not restrict its use explicitly,
-# but putting it in the middle of packets will break the protocol.
-# It is added by TopWindow.sendRobust.
-ENDPACKET = '~`mq|'
-
-# Indeces used for basic lands
-PLAINS = 0
-ISLAND = 1
-SWAMP = 2
-MOUNTAIN = 3
-FOREST = 4
+from protocolDefs import *
 
 # These are actually defined below classes, but I've
 # recorded names here for reference
@@ -100,8 +29,10 @@ HOST = 'localhost'
 PORT = 21567
 BUFSIZ = 1024
 ADDR = (HOST, PORT)
-setList = ['SHM','SHM','SHM']
-#setList = ['SHM']
+#setList = ['SHM','SHM','SHM']
+setList = ['SHM']
+
+print(MARK)
 
 class Client():
     def __init__(self, socket, IP):
@@ -112,6 +43,7 @@ class Client():
         self.ID = self.tag+'@'+IP
         self.oldID = self.tag+'@'+IP
         self.packQueue = []
+
 
         #For the draft the clients will be a doubly linked list
         self.next = None
@@ -324,7 +256,7 @@ class TopWindow(Tk):
                         data = self.dataQueue[0:index]
                         self.dataQueue = self.dataQueue\
                                             [index + len(ENDPACKET):]
-                        print "Received: " + data
+                        print "Received: " + data + " from " + client.tag
                         self.checkNetwork_handlePacket(client, data)
                 except:pass
 
@@ -468,13 +400,15 @@ class TopWindow(Tk):
 
         elif data[0:2] == REQUESTREADINESS:
             data = READINESS
-            for client in self.clients.values():
-                data = data+client.ID
-                if client.ready:
-                    data = data+"1"
+            IDs = []
+            for tempClient in self.clients.values():
+                datapart = tempClient.ID
+                if tempClient.ready:
+                    datapart = datapart+"1"
                 else:
-                    data = data+"0"
-                data = data+MARK
+                    datapart = datapart+"0"
+                IDs.append(datapart)
+            data = data + MARK.join(IDs)
                 
             self.sendRobust(client,data)
 
@@ -532,23 +466,25 @@ class TopWindow(Tk):
     def checkReadiness(self):
 
         # If not all the ready values are True
-        if False in map(lambda x: x.ready, self.clients):
+        if False in map(lambda x: x.ready, self.clients.values()):
             return
 
         # Otherwise, all the ready values are True, and
         # we should start the draft
         else:
+            # Tell everyone that nobody is ready
+            data = READINESS
+            IDs = []
+            for tempClient in self.clients.values():
+                tempClient.ready = False
+                IDs.append(tempClient.ID + '0')
+            data = data+MARK.join(IDs)
+            self.sendToEveryone(data)
             if self.state == "WAITING":
                 self.draft_start()
             elif self.state == "DRAFT":
-                # Tell everyone that nobody is ready
-                data = READINESS
-                for client in self.clients:
-                    client.ready = False
-                    data = data + cleint.ID\
-                        + "0"
-                self.sendToEveryone(data)
                 self.draft_nextPack()
+            
                                 
     def createOpeningScreenWidgets(self):
         # Create labels for entry boxes
@@ -602,7 +538,7 @@ class TopWindow(Tk):
             nextSet = setList.pop(0)
             # If you want to implement multiple sets,
             # do it with the setList and an input to Pack()
-            for client in self.clients:
+            for client in self.clients.values():
                 pack = Pack()
                 client.packQueue.append(pack)
                 self.sendRobust(client, pack.toPackList())
@@ -688,16 +624,19 @@ class TopWindow(Tk):
             return
 
     def makeUniqueName(self,baseName):
-        if baseName in map(lambda x:x.tag, self.clients):
+        if baseName in map(lambda x:x.tag, self.clients.values()):
             return self.makeUniqueName(baseName + '+')
         else:
             return baseName
 
     def makePlayerlist(self):
+        print('Starting to make playerlist.')
         data = PLAYERLIST
         for client in self.clients.values():
             data = data+client.ID+MARK
         data = data[0:-1] #remove the last mark
+        print('Successfully made playerlist: ' + data)
+        return data
 
     def removeClient(self, client):
         client.socket.close()

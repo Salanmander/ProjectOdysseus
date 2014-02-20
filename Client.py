@@ -8,143 +8,131 @@ from socket import *
 import time
 import random
 
-# Data protocol tags. I'm assuming I won't need more 2 characters
-# to uniquely identify packet type. They are appended to the beginning
-# of each packet.
+from protocolDefs import *
+from parameters import *
 
-MESSAGE = 'aa' # A text message
-ALL = 'A' # Sends to everyone, displays on all chat boxes
-WAITING = 'W' # Sends to everyone, displays in waiting/deck building rooms
-GAME = 'G' # Sends to you and opponent, displays in game
-
-PLAYERLIST = 'ab' # List of players in (a given? all?) room(s)
-NEWPLAYER = 'ac' # The name of a player that has just joined
-SETTAG = 'ad' # A player changing their tag
-SETID = 'at' # A player is telling the server what their ID # is
-LEAVE = 'ae' # A player just left
-READINESS = 'af' # A player has set their readiness state
-STARTDRAFT = 'ag' # The draft is starting
-STARTDECK = 'ah' # The deck-building stage is starting
-STARTGAME = 'ai' # A game is starting between two players
-
-NEWPLAYERORDER = 'aj' # A list of the old indeces of players in ther new order
-PACKLIST = 'ak' # A list of cards a player should add as a pack to their queue
-PICKEDCARD = 'al' # The card from a player's current pack that they picked
-
-CHALLENGE = 'am' # A challenge to a game has been issued
-DECKLIST = 'an' # A full listing of a player's deck, minus basic lands
-LANDLIST = 'ao' # A list of numbers of basic land cards in player's deck
-DECKSIZES = 'ap' # Player's deck size followed by opponent's deck size;
-                 # also sent to server to request said data\
-HANDSIZES = 'aq'
-CHNGHANDSIZE = 'ar' # I don't like needing to use this, but I couldn't think of
-                    # a simpler way. This simply lets the server know (+/-)
-                    # that the player's hand size has been changed by one.
-LIFE = 'as' # A player sending the server their life, or the server sending
-            # a player their opponent's life
-
-REQUESTPLAYERLIST = 'ba' # A client requesting a PLAYERLIST
-REQUESTREADINESS = 'bb' # A client requesting readiness values for all players
-
-DRAW = 'ca' #The top card of a player's deck, or a request for such
-DECKTOP = 'cb' #Tells the server to put the specified card on top of the deck
-DECKBOTTOM = 'cc'
-SHUFFLE = 'cd' #Tells the server to shuffle the player's deck
-VIEWDECK = 'ce' # First char is player: 0 for self, 1 for opponent
-                # Server adds the appropriate deck list and returns it
-DECKREMOVE = 'cf' # Tells server to remove one copy of given card from
-                  # (0/1) self or opponent's deck
-                  # NOT GUARANTEED to take card from desired position
-CARDPOSITION = 'cg' #These allow sharing of the virtual tabletop
-NEWPLAYCARD = 'ch'
-DELPLAYCARD = 'ci'
-FLIPTOGGLE = 'cj'
-TAPTOGGLE = 'ck'
+class CardManager:
+    def __init__(self):
+        # Image varaibles
+        self.images = dict()
+        self.thumbnails = dict()
+        self.thumbTapped = dict()
+        self.thumb180 = dict()
+        self.thumb180Tap = dict()
 
 
+    def loadMask(self):
+        # load mask for finding power/toughness box
+        self.powerBoxMask = Image.open("Cards/powerBoxMask.png")
+        # Convert mask to greyscale (mode "L")
+        self.powerBoxMask = self.powerBoxMask.convert("L")
+        w = CARDWIDTH
+        h = CARDHEIGHT
+        # Resize to thumbnail size, won't use for full cards
+        self.powerBoxMask = self.powerBoxMask.resize((int(w*THUMBSCALE),\
+                                                      int(h*THUMBSCALE)),Image.ANTIALIAS)
+        # Also get closely bounded mask
+        self.smallPowerMask = self.powerBoxMask.crop(self.powerBoxMask.getbbox())
+        # These are images we overwrite frequently, may have arbitrary data
+        self.powerBackground = Image.new("RGB",(int(w*THUMBSCALE),\
+                                                int(h*THUMBSCALE)))
+        self.blankImage = Image.new("RGB",(THUMBWIDTH,THUMBHEIGHT))
 
-# This is a single character used as a delimeter in sent messages.
-# It can't appear in strings that will be sent across the network.
-MARK = '='
+    def loadCard(self,card):
+        filename = "Cards/EN_SHM_"+card+".jpg"
+        temp_image = Image.open(filename)
+        temp_image = temp_image.resize((CARDWIDTH,\
+                                        CARDHEIGHT),Image.ANTIALIAS)
+        
+        self.images[card] = ImageTk.PhotoImage(temp_image)
 
-# This is the mark of the end of a packet. I've decided it's
-# sufficiently unlikely to not restrict its use explicitly,
-# but putting it in the middle of packets will break the protocol.
-# It is added by TopWindow.send.
-ENDPACKET = '~`mq@'
+        temp_image = self.makeThumbnail(temp_image,card)
 
-# Indeces used for basic lands
-PLAINS = 0
-ISLAND = 1
-SWAMP = 2
-MOUNTAIN = 3
-FOREST = 4
+        
+        self.thumbnails[card] = ImageTk.PhotoImage(temp_image)
 
-NETLAG = 1 # number of miliseconds between checking the network
-TAG = 'YoungPadawan'
-HOST = 'localhost'
-PORT = 21567
-BUFSIZ = 1024
+        # We use all four cardinal orientations
+        temp_image = temp_image.rotate(90)
+        self.thumb180Tap[card] = ImageTk.PhotoImage(temp_image)
+        temp_image = temp_image.rotate(90)
+        self.thumb180[card] = ImageTk.PhotoImage(temp_image)
+        temp_image = temp_image.rotate(90)
+        self.thumbTapped[card] = ImageTk.PhotoImage(temp_image)
+        return
 
-# Parameters about card size
-THUMBSCALE = 0.5 # Linear scaling factor to use for small size cards
-TITLEFRACTION = 0.12 # This is the fraction of the card that should be
-                    # displayed from the top for the title bar to be visible
-CARDWIDTH = 265
-CARDHEIGHT = 370
-# Derived parameters
-CARDTITLEHEIGHT = int(CARDHEIGHT * TITLEFRACTION)
-THUMBWIDTH = int(THUMBSCALE * CARDWIDTH)
-THUMBHEIGHT = int(THUMBSCALE * CARDHEIGHT)
-THUMBTITLEHEIGHT = int(CARDHEIGHT * TITLEFRACTION * THUMBSCALE)
+    def makeThumbnail(self,fullImage,card):
+        w,h = fullImage.size
+        newImage = fullImage.resize((int(w*THUMBSCALE),\
+                                     int(h*THUMBSCALE)),Image.ANTIALIAS)
+        if(THUMBREMOVETEXT):
+            # get the power/toughness box
+            powerImage = newImage.crop(self.powerBoxMask.getbbox())
 
+            creature = self.isCreature(powerImage)
+            
+            # Get top of card and bottom border, then paste them together
+            w,h = newImage.size
+            topPixels = int(h*TYPEFRACTION)
+            # THUMBHEIGHT is calculated using VBLACKFRACTION, so
+            # THUMBHEIGHT-topPixels is the number of pixels we have left
+            # for the bottom border. This is done so that the height of
+            # the new image will exactly match THUMBHEIGHT, regardless of
+            # rounding.
+            bottomBorder = newImage.crop((0,h-(THUMBHEIGHT-topPixels),\
+                                          w,h))
+            newImage = newImage.crop((0,0,w,topPixels))
 
-# Parameters for waiting window
-WAIT_WIDTH = 50
-WAIT_HEIGHT = 30
+            self.blankImage.paste(newImage,(0,0)) # Paste into top-left corner
+            self.blankImage.paste(bottomBorder,(0,topPixels)) # Paste below that
 
-# Parameters for draft window
-DRAFT_CHATHEIGHT = 8
-DRAFT_CHATWIDTH = 108
-DRAFT_PLAYERHEIGHT = 8
-DRAFT_PLAYERWIDTH = 30
-DRAFT_PICKEDHEIGHT = 375
-DRAFT_PICKEDWIDTH = 837
-# Unfortunately I haven't yet figured a way to set the size of the
-# booster pack display conveniently
+            if creature:
+                # add on power/toughness box
+                # horizontal location of top-left corner of box
+                x = int(w*POWERBOX_X_FRACTION)
+                # vertical location of top-left corner of box
+                y = int(h*POWERBOX_Y_FRACTION)
+                self.blankImage.paste(powerImage,(x,y),self.smallPowerMask)
 
-# The deck-building window just fills the space available in the grid
+            newImage = self.blankImage
+        else:
+            textBox = Image.new("RGB",(THUMBTEXTWIDTH,THUMBTEXTHEIGHT),
+                                TEXTBOXCOLOR)
+            newImage.paste(textBox,(int(THUMBWIDTH*HBORDERFRACTION),
+                                    int(THUMBHEIGHT*TYPEFRACTION)))
+            
+            
+        return newImage
 
-# Parameters for game window
-GAME_MESSAGEWIDTH = 20
-GAME_MESSAGENUM = 15
-GAME_MESSAGES = ("At the end of your turn...","Untap/upkeep/draw.",\
-                 "Main phase.","Combat phase.","Hold on...","Your turn.",\
-                 "Declare no blockers.")
-GAME_PLAYHEIGHT = 700
-GAME_PLAYWIDTH = 950
-GAME_HANDWIDTH = THUMBWIDTH + 4
-GAME_HANDHEIGHT = 400
-GAME_CHATWIDTH = 160 
-GAME_CHATHEIGHT = 14
-GAME_INFOBARWIDTH = 52
-GAME_LABELSPACE = 30 # Space between the tops of indicators for life etc.
-GAME_LABELOFFSET = 12 # Shift the labels to center them WRT the life entry box
-GAME_DECKROWS = 15 # Number of cards to display in a column when showing an
-                   # entire deck.
+    def isCreature(self,im):
+        # Convert to greyscale
+        im = im.convert("L")
+        w,h = im.size
 
-# Image global varaibles
-images = dict()
-thumbnails = dict()
-thumbTapped = dict()
-thumb180 = dict()
-thumb180Tap = dict()
+        # There should be a strong edge between 5 and 6 pixels from the bottom
+        # average pixel differences along there, NOT doing abs value
+        pix = im.load()
+
+        
+        # search the bottom half of the image for a strong edge
+        # ignoring the bottom two rows because of edge effects of downscaling
+        for row in range(h-3,int(h/2),-1):
+            diff = 0
+            for col in range(w):
+                diff = diff + (pix[col,row]-pix[col,row-1])
+            aveDiff = diff/w
+            if abs(aveDiff)> CREATURE_EDGE_THRESHOLD:
+                return True
+        return False
+
 
 class ChatBox(Frame):
     def __init__(self,master,sendType = WAITING):
         Frame.__init__(self,master)
 
         self.sendType = sendType
+
+        # We will be using the frame to set the size
+        self.pack_propagate(0)
 
         
         # create scrollbar
@@ -164,9 +152,15 @@ class ChatBox(Frame):
         self.entry = Entry(self)
         self.entry.bind("<Return>",self.sendMessageEvent)
 
-        self.entry.pack(side = BOTTOM)
+        # set sizes to minimum, then pack to fill frame
+        self.entry.config(width = 1)
+        self.display.config(width = 1, height = 1)
+
+        self.entry.pack(side = BOTTOM, fill = X)
         self.scrollbar.pack(side = RIGHT, fill = Y)
-        self.display.pack(side = TOP)
+        self.display.pack(side = TOP, fill = BOTH, expand = 1)
+        
+
 
     def sendMessage(self, data):
         if len(data) == 0:
@@ -193,8 +187,9 @@ class ChatBox(Frame):
         self.display.see(END+ "-2c")
 
     def resize(self,width,height):
-        self.entry.config(width = width)
-        self.display.config(width = width-3, height = height-1)
+        self.config(width = width, height = height)
+
+
 
 class Deck_DeckBox(Frame):
     def __init__(self,master):
@@ -314,20 +309,10 @@ class Draft_Card(Label):
         self.show('0001')
 
     def show(self,card):
-        if not card in thumbnails.keys():
-            filename = "Cards/EN_SHM_"+card+".jpg"
-            temp_image = Image.open(filename)
-            images[card] = ImageTk.PhotoImage(temp_image)
+        if not card in cards.thumbnails.keys():
+            cards.loadCard(card)
             
-            bbox = temp_image.getbbox()
-            temp_image = temp_image.resize((int(bbox[2]*THUMBSCALE),\
-                                            int(bbox[3]*THUMBSCALE)),Image.ANTIALIAS)
-            thumbnails[card] = ImageTk.PhotoImage(temp_image)
-
-            temp_image = temp_image.rotate(270)
-            thumbTapped[card] = ImageTk.PhotoImage(temp_image)
-
-        self.config(image = images[card])
+        self.config(image = cards.images[card])
 
 class Draft_Menu(Menu):
     def __init__(self, master):
@@ -366,12 +351,12 @@ class Draft_Pack(Frame):
 
         # For each card, if we don't already have the image set, get it.
         # Then make a label.
-        self.cardLabels = [None]*16
+        self.cardLabels = [None]*15
+        n = DRAFT_PACK_CARDSPERROW
         i = 0
         for card in pack:
-
             self.cardLabels[i] = SmallCard(self, card)
-            self.cardLabels[i].grid(row = int(i/8), column = i%8)
+            self.cardLabels[i].grid(row = int(i/n), column = i%n)
             self.cardLabels[i].config(bg = "White")
             self.cardLabels[i].bind("<Double-Button-1>",self.pickCard)
             i = i+1
@@ -380,28 +365,13 @@ class Draft_Pack(Frame):
         # This fills the rest of the panel with blank white JPEGs that don't
         # do anything. Why? So it doesn't shrink when you get fewer cards.
         card = '0000'
-        for j in range(len(pack),16):
-            if not card in thumbnails.keys():
-                filename = "Cards/EN_SHM_"+card+".jpg"
-                temp_image = Image.open(filename)
-                images[card] = ImageTk.PhotoImage(temp_image)
-                
-                bbox = temp_image.getbbox()
-                temp_image = temp_image.resize((int(bbox[2]*THUMBSCALE),\
-                                                int(bbox[3]*THUMBSCALE)),Image.ANTIALIAS)
-                thumbnails[card] = ImageTk.PhotoImage(temp_image)
+        for j in range(len(pack),15):
+            if not card in cards.thumbnails.keys():
+                cards.loadCard(card)
 
-                # We use all four cardinal orientations
-                temp_image = temp_image.rotate(90)
-                thumb180Tap[card] = ImageTk.PhotoImage(temp_image)
-                temp_image = temp_image.rotate(90)
-                thumb180[card] = ImageTk.PhotoImage(temp_image)
-                temp_image = temp_image.rotate(90)
-                thumbTapped[card] = ImageTk.PhotoImage(temp_image)
-
-            self.cardLabels[i] = Label(self, image = thumbnails[card])
+            self.cardLabels[i] = Label(self, image = cards.thumbnails[card])
             self.cardLabels[i].config(bg = "White")
-            self.cardLabels[i].grid(row = int(i/8), column = i%8)
+            self.cardLabels[i].grid(row = int(i/n), column = i%n)
             i = i+1
         
 
@@ -801,15 +771,10 @@ class Game_PlayArea(Frame):
                 cardLabel.updatePosition(sendNote = False)
 
     def tapCardID(self, cardID):
-        print("1")
         for cardLabel in self.cardLabels:
-            print("1")
             if cardLabel.ID == cardID:
-                print("1")
                 cardLabel.tapped = not cardLabel.tapped
-                print("1")
                 cardLabel.updateImage()
-                print("1")
                                     
 
     def tapToggle(self,event):
@@ -819,9 +784,7 @@ class Game_PlayArea(Frame):
         cardLabel.unbind("<Double-Button-1>")
         self.tapHelperQueue.append(cardLabel)
         self.after(500,self.tapToggleHelper)
-        print("1")
         root.send(TAPTOGGLE + str(cardLabel.ID).zfill(3))
-        print("2")
 
     def tapToggleHelper(self):
         cardLabel = self.tapHelperQueue.pop(0)
@@ -951,7 +914,7 @@ class Game_Tools(Frame):
 class Game_Window(Toplevel):
     def __init__(self,master, me, opponent):
         Toplevel.__init__(self,master)
-        self.title("YADP GAME: " + opponent.tag)
+        self.title("YADP GAME: " + me.tag + "vs." + opponent.tag)
 
         # make game state variables
         self.me = me
@@ -966,24 +929,16 @@ class Game_Window(Toplevel):
 
         
         # create widgets
-        print("1")
         self.playBox = Game_PlayArea(self)
-        print("2")
         self.handBox = Game_Hand(self)
-        print("3")
         
         self.chatBox = ChatBox(self, sendType = GAME)
         self.chatBox.resize(GAME_CHATWIDTH,GAME_CHATHEIGHT)
-        print("3")
         
         self.cardBox = Draft_Card(self)
-        print("4")
         self.displayBar = Game_Display(self)
-        print("5")
         self.toolBox = Game_Tools(self)
-        print("6")
         self.messagesBox = Game_Messages(self)
-        print("7")
         
         self.playBox.grid(row = 0, column= 3, rowspan = 3)
         self.handBox.grid(row = 2, column = 0, rowspan = 2)
@@ -1027,40 +982,53 @@ class Game_Window(Toplevel):
 
 
 class Player():
-    def __init__(self,index,tag):
-        self.index = index
+    def __init__(self,ID,tag):
+        self.ID = ID
         self.tag = tag
         self.room = None
         self.ready = False
-        self.ID = None
+        self.next = None #player to the left
+        self.prev = None #player to the right
 
         # These are used during games
         self.deckSize = 0
         self.handSize = 0
         self.life = 20
-              
+
+# This is a small class that allows the player box to be
+# sized in pixels.
+class PlayerBox(Frame):
+    def __init__(self,master):
+        Frame.__init__(self,master)
+
+        self.list = Listbox(self)
+
+        # Makes frame not resize to fit contents
+        self.pack_propagate(0)
+
+        self.list.pack(side = TOP, fill = BOTH, expand = 1)
+
+    # These functions simply pass calls on to the Listbox
+    def curselection(self):
+        return self.list.curselection()
+
+    def get(self, index):
+        return self.list.get(index)
+
+    def delete(self, start, end):
+        return self.list.delete(start, end)
+
+    def insert(self, index, message):
+        return self.list.insert(index, message)
+
+    def resize(self, width, height):
+        self.config(width = width, height = height)
 
 class SmallCard(Label):
     def __init__(self,master,card, flipped = False):
         Label.__init__(self,master)
-        if not card in thumbnails.keys():
-            filename = "Cards/EN_SHM_"+card+".jpg"
-            temp_image = Image.open(filename)
-            images[card] = ImageTk.PhotoImage(temp_image)
-            
-            
-            bbox = temp_image.getbbox()
-            temp_image = temp_image.resize((int(bbox[2]*THUMBSCALE),\
-                                            int(bbox[3]*THUMBSCALE)),Image.ANTIALIAS)
-            thumbnails[card] = ImageTk.PhotoImage(temp_image)
-
-            # We use all four cardinal orientations
-            temp_image = temp_image.rotate(90)
-            thumb180Tap[card] = ImageTk.PhotoImage(temp_image)
-            temp_image = temp_image.rotate(90)
-            thumb180[card] = ImageTk.PhotoImage(temp_image)
-            temp_image = temp_image.rotate(90)
-            thumbTapped[card] = ImageTk.PhotoImage(temp_image)
+        if not card in cards.thumbnails.keys():
+            cards.loadCard(card)
 
         self.card = card
         self.bind("<Enter>", self.showBigCard)
@@ -1203,25 +1171,25 @@ class SmallCard(Label):
         if self.flipped:
             if self.rotated:
                 if self.tapped:
-                    self.configure(image = thumb180Tap["BACK"])
+                    self.configure(image = cards.thumb180Tap["BACK"])
                 else:
-                    self.configure(image = thumb180["BACK"])
+                    self.configure(image = cards.thumb180["BACK"])
             else:
                 if self.tapped:
-                    self.configure(image = thumbTapped["BACK"])
+                    self.configure(image = cards.thumbTapped["BACK"])
                 else:
-                    self.configure(image = thumbnails["BACK"])
+                    self.configure(image = cards.thumbnails["BACK"])
         else:
             if self.rotated:
                 if self.tapped:
-                    self.configure(image = thumb180Tap[self.card])
+                    self.configure(image = cards.thumb180Tap[self.card])
                 else:
-                    self.configure(image = thumb180[self.card])
+                    self.configure(image = cards.thumb180[self.card])
             else:
                 if self.tapped:
-                    self.configure(image = thumbTapped[self.card])
+                    self.configure(image = cards.thumbTapped[self.card])
                 else:
-                    self.configure(image = thumbnails[self.card])
+                    self.configure(image = cards.thumbnails[self.card])
                     
 
     # This function keeps running track of the position in the master
@@ -1319,12 +1287,9 @@ class TopWindow(Tk):
         Tk.__init__(self)
         self.title("YADP")
         
-        self.players = []
-        self.index = None
-        self.ID = ''
-        for i in range(4):
-            self.ID = self.ID + chr(random.randint(0,255))
-        self.opponentIndex = None
+        self.players = {}
+        self.ID = None
+        self.opponentID = None
         self.createOpeningScreenWidgets()
         self.dataQueue = ''
         
@@ -1341,15 +1306,19 @@ class TopWindow(Tk):
         try:
             host = self.ipBox.get()
             port = int(self.portBox.get())
-            self.tag = self.tagBox.get()
+            startingTag = self.tagBox.get()
 
 
         except:
             print("Exception in TopWindow.acceptIP.")
             return
         
-        if MARK in self.tag:
+        if MARK in startingTag:
             print "Can't include " + MARK + " in tag."
+            return
+
+        if ENDPACKET in startingTag:
+            print "Can't include " + ENDPACKET + " in tag."
             return
 
         self.unbind("<Return>")
@@ -1362,6 +1331,8 @@ class TopWindow(Tk):
         # Create new GUI
         self.createWaitingRoomWidgets()
 
+        # Do setting-dependant initialization of card manager
+        cards.loadMask()
                         
         # Set real IP address
         self.addr = (host,port)
@@ -1378,12 +1349,11 @@ class TopWindow(Tk):
 
         # Pause for a bit, because if we get the name change message
         # before that is fully processed, bad things happen
-        time.sleep(0.01)
+        time.sleep(0.1)
 
-        # Send ID to server
-        self.send(SETID+self.ID)
+
         # Send tag to server
-        self.send(SETTAG+self.tag)
+        self.send(SETTAG+startingTag)
         # Send requests for player information
         self.send(REQUESTREADINESS)
 
@@ -1410,10 +1380,13 @@ class TopWindow(Tk):
         except:
             pass
                         
-        
         self.listenID = self.after(NETLAG,self.checkNetwork)
 
+    #TODO: Update things that the message format changed: SETTAG, PLAYERLIST
+    #NEWPLAYER,READINESS, CHALLENGE (sending&receiving),
     def checkNetwork_handlePacket(self,data):
+
+        print('Received: '+data)
         # Received a text message
         if data[0:2] == MESSAGE:
             if data[2] == WAITING:
@@ -1432,83 +1405,90 @@ class TopWindow(Tk):
 
         # Got a full list of players
         elif data[0:2] == PLAYERLIST:
-            number = int(data[2:4])
-            self.index = number-1
-            data = data[4:]
-            self.players = [None]*number
-            while(True):
-                # Get the next index, and remove it from the data
-                nextIndex = int(data[0:2])
-                data = data[2:]
+            data = data[2:].split(MARK)
+            for ID in data:
+                # grab the tag from the ID
+                tag = ID.split('@')[0] #everything before the first @
                 
-                # Find the latest delimiter
-                # If there are none, we have one more name and this
-                # sets to -1.
-                index = data.find(MARK)
-                # Fetch everything before it
-                if index == -1:
-                    nextName = data
-                else:
-                    nextName = data[0:index]
-                # Add that name to the list
-                self.players[nextIndex] = Player(nextIndex, nextName)
-                # Delete everything before the last delimeter
-                data = data[index+1:]
-                # Break out of the loop if this was the last name
-                if index == -1:
-                    break
+                # Create a player, add them to the dict
+                self.players[ID] = Player(ID, tag)
+
             self.updatePlayerBox()
 
         elif data[0:2] == NEWPLAYER:
-            index = int(data[2:4])
-            tag = data[4:]
-            player = Player(index, tag)
-            if(len(self.players) == index):
-                self.players.append(player)
-            else:
-                print("ERROR\nERROR\nnewplayer index inconsistency")
-                        
-                    
+            ID = data[2:]
+            parts = ID.split('@')
+            tag = parts[0]
+            player = Player(ID, tag)
+            self.players[ID]=player
+
+            print(self.ID)
+            #If we haven't set our tag yet, this is the first time we're
+            #getting this, and it's us.
+            if self.ID == None:
+                self.ID = ID
+                self.tag = tag
+
+            self.updatePlayerBox()
 
         # A player changed their tag
         elif data[0:2] == SETTAG:
 
-            # Get index and new tag
-            index = int(data[2:4])
-            newTag = data[4:]
+            # Get old ID and new ID
+            IDs = data[2:].split(MARK)
+            oldID = IDs[0]
+            newID = IDs[1]
+
+            parts = newID.split('@')
+            tag = parts[0]
+
+            # If the old ID is the same as ours, replace our ID and tag.
+            if oldID == self.ID:
+                self.ID = newID
+                self.tag = tag
 
             # Make sure we have that player
-            if index < len(self.players):
+            if oldID in self.players.keys():
                 # Change the tag of the player
-                self.players[index].tag = newTag
+                self.players[newID] = self.players.pop(oldID)
+                self.players[newID].ID = newID
+                self.players[newID].tag = tag
                 self.updatePlayerBox()
 
-            # If we encountered an inconsistency, keep going but note the error
+            # Otherwise, create the player and comment on it. Shouldn't happen.
             else:
-                print("ERROR!\nERROR!\nIndex of updated player name outside range.")
+                print('Warning: Tag change of nonexistant player.')
+                player = Player(newID,tag)
+                self.players[newID] = player
 
+                # Check to see if we've set our own tag
+                if self.ID == None:
+                    print(' (Received before we set our own tag.)')
+                    #Assume it's because this is our ID.
+                    #Set our ID and create player
+                    self.ID = newID
+                    self.tag = tag
+
+   
         # A player has left the game
         elif data[0:2] == LEAVE:
-            index = int(data[2:4])
-            self.players.pop(index)
-            print(map(lambda x:x.tag,self.players))
+            ID = data[2:]
+            self.players.pop(ID)
+            print(map(lambda x:x.tag,self.players.values()))
 
-            for i in range(len(self.players)):
-                self.players[i].index = i
             self.updatePlayerBox()
 
         elif data[0:2] == READINESS:
             # Remove the type marker
             data = data[2:]
-            while(data):
-                # Get the next index
-                nextIndex = int(data[0:2])
-                
+            # Get each player separately
+            data = data.split(MARK)
+            for entry in data:
+                readiness = entry[-1] == "1"
+                ID = entry[0:-1]
+                print(ID)
                 # Set the appropriate readiness value
-                self.players[nextIndex].ready = data[2] == "1"
-
-                # Remove that player's readiness from the data
-                data = data[3:]
+                self.players[ID].ready = readiness
 
             self.updatePlayerBox()
 
@@ -1519,36 +1499,33 @@ class TopWindow(Tk):
             self.deck_start()
 
         elif data[0:2] == STARTGAME:
-            index1 = int(data[2:4])
-            index2 = int(data[4:])
+            IDs = data[2:].split(MARK)
 
-            if index1 == self.index:
-                self.game_start(index2)
-            elif index2 == self.index:
-                self.game_start(index1)
+            print('a')
+            if IDs[0] == self.ID:
+                print('b1')
+                self.game_start(IDs[1])
+            elif IDs[1] == self.ID:
+                print('b2')
+                self.game_start(IDs[0])
             else:
-                self.chatBox.recvMessage(self.players[index1].tag + " and "\
-                                         + self.players[index2].tag\
+                print('b3')
+                self.chatBox.recvMessage(self.players[IDs[0]].tag + " and "\
+                                         + self.players[IDs[1]].tag\
                                          + " have started a game.")
             
 
         elif data[0:2] == NEWPLAYERORDER:
             data = data[2:]
 
-            print map(lambda x: x.tag,self.players)
-            # We're going through in the new order, being given
-            # the old indeces
-            newIndex = 0
-            while data:
-                oldIndex = int(data[0:2])
-                if oldIndex == self.index:
-                    self.index = newIndex
-                    
-                self.players[oldIndex].index = newIndex
-                data = data[2:]
-                newIndex = newIndex+1
-
-            self.players.sort(lambda x,y:cmp(x.index,y.index))
+            IDs = data.split(MARK)
+            for i in range(len(IDs)):
+                player = self.players[IDs[i]]
+                player.prev = self.players[IDs[i-1]]
+                if i < (len(IDs)-1):
+                    player.next = self.players[IDs[i+1]]
+                else:
+                    player.next = self.players[IDs[0]]
 
             self.updatePlayerBox()
 
@@ -1569,21 +1546,21 @@ class TopWindow(Tk):
 
         elif data[0:2] == CHALLENGE:
             self.chatBox.recvMessage("You have been challenged to a duel by "\
-                                     + self.players[int(data[2:])].tag + ". "\
+                                     + self.players[data[2:]].tag + ". "\
                                      + "To start a game, reciprocate.")
 
         elif data[0:2] == DECKSIZES:
-            self.players[self.index].deckSize = int(data[2:5])
-            self.players[self.opponentIndex].deckSize = int(data[5:])
+            self.players[self.ID].deckSize = int(data[2:5])
+            self.players[self.opponentID].deckSize = int(data[5:])
             self.gameWindow.updateDeckSizes()
 
         elif data[0:2] == HANDSIZES:
-            self.players[self.index].handSize = int(data[2:4])
-            self.players[self.opponentIndex].handSize = int(data[4:])
+            self.players[self.ID].handSize = int(data[2:4])
+            self.players[self.opponentID].handSize = int(data[4:])
             self.gameWindow.updateHandSizes()
 
         elif data[0:2] == LIFE:
-            self.players[self.opponentIndex].life = int(data[2:])
+            self.players[self.opponentID].life = int(data[2:])
             self.gameWindow.updateLife()
             
 
@@ -1674,12 +1651,10 @@ class TopWindow(Tk):
 
         self.packBox = Draft_Pack(self)
         self.pickedBox = Draft_PickedCards(self)
-        print("2")
         self.cardBox = Draft_Card(self)
         self.chatBox.resize(DRAFT_CHATWIDTH,DRAFT_CHATHEIGHT)
         self.chatBox.pack_forget()
-        self.playerBox.config(width = DRAFT_PLAYERWIDTH, \
-                              height = DRAFT_PLAYERHEIGHT)
+        self.playerBox.resize(DRAFT_PLAYERWIDTH, DRAFT_PLAYERHEIGHT)
         self.playerBox.pack_forget()
 
 
@@ -1703,17 +1678,33 @@ class TopWindow(Tk):
         self.chatBox.pack(side = LEFT)
 
         # Create player list box
-        self.playerBox = Listbox(self)
+        self.playerBox = PlayerBox(self)
+        self.playerBox.resize(WAIT_PLAYERWIDTH,WAIT_PLAYERHEIGHT)
         self.playerBox.pack(side = LEFT)
 
     def deck_challenge(self):
-        slappedIndex = int(self.playerBox.curselection()[0])
-        self.chatBox.recvMessage("You have challenged " \
-                                 + self.players[slappedIndex].tag\
-                                 + " to a duel.")
-        self.challenging = slappedIndex
+        print(self.playerBox.curselection())
+        # We have to reference the player by tag...we could get around this
+        # by keeping an array of IDs in the same order as the listbox
+        # if desired in the future.
+        slappedIndex = self.playerBox.curselection()[0]
+        slappedTag = self.playerBox.get(slappedIndex)
+        print(slappedTag)
 
-        self.send(CHALLENGE+str(slappedIndex).zfill(2))
+        # Find the player with that tag.
+        slappedPlayer = None
+        for player in self.players.values():
+            if player.tag == slappedTag:
+                slappedPlayer = player
+
+        print(slappedPlayer.ID)
+        
+        self.chatBox.recvMessage("You have challenged " \
+                                 + slappedPlayer.tag\
+                                 + " to a duel.")
+        self.challenging = slappedPlayer.ID
+
+        self.send(CHALLENGE+slappedPlayer.ID)
         
 
     def deck_start(self):
@@ -1781,28 +1772,32 @@ class TopWindow(Tk):
         
         
     def draft_start(self):
-        for player in self.players:
-            player.ready = False
+        #for player in self.players.values():
+        #    player.ready = False
 
         self.createDraftWidgets()
 
-    def game_start(self, opponentIndex):
+    def game_start(self, opponentID):
         # Give the server your deck
+        print('1')
         data = DECKLIST
         for cardLabel in self.deckBox.cardLabels:
             data = data + cardLabel.card 
         self.send(data)
 
+        print('2')
         data = LANDLIST
         data = data + self.landBox.getLandData()
         self.send(data)
 
+        print('3')
         # Keep around a reference to who your opponent is
-        self.opponentIndex = opponentIndex
+        self.opponentID = opponentID
 
         # Game widgets go in a new window
-        self.gameWindow = Game_Window(self, self.players[self.index],\
-                                      self.players[opponentIndex])
+        self.gameWindow = Game_Window(self, self.players[self.ID],\
+                                      self.players[opponentID])
+        print('4')
         self.send(DECKSIZES)
         
 
@@ -1824,6 +1819,7 @@ class TopWindow(Tk):
             return
 
     def send(self, data):
+        print('Sending: '+data)
         self.clientSock.sendall(data+ENDPACKET)
 
     def showBigCard(self,card):
@@ -1836,7 +1832,8 @@ class TopWindow(Tk):
     def updatePlayerBox(self):
         try:
             self.playerBox.delete(0,END)
-            for player in self.players:
+            for player in self.players.values():
+                print('updating player: ' + str(player.ready))
                 if player.ready:
                     self.playerBox.insert(END,player.tag+" (ready)")
                 else:
@@ -1872,24 +1869,8 @@ class WaitingMenu(Menu):
 
 root = TopWindow()
 
-# Getting the card back image, since we don't check for it other places
-card = "BACK"
-filename = "Cards/EN_SHM_"+card+".jpg"
-temp_image = Image.open(filename)
-temp_image = temp_image.resize((CARDWIDTH,\
-                                CARDHEIGHT),Image.ANTIALIAS)
-images[card] = ImageTk.PhotoImage(temp_image)
-
-bbox = temp_image.getbbox()
-temp_image = temp_image.resize((int(bbox[2]*THUMBSCALE),\
-                                int(bbox[3]*THUMBSCALE)),Image.ANTIALIAS)
-thumbnails[card] = ImageTk.PhotoImage(temp_image)
-
-temp_image = temp_image.rotate(90)
-thumb180Tap[card] = ImageTk.PhotoImage(temp_image)
-temp_image = temp_image.rotate(90)
-thumb180[card] = ImageTk.PhotoImage(temp_image)
-temp_image = temp_image.rotate(90)
-thumbTapped[card] = ImageTk.PhotoImage(temp_image)
+# This object holds and manipulates all the card images
+cards = CardManager()
+cards.loadCard("BACK")
 
 root.mainloop()
