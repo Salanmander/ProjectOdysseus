@@ -8,30 +8,43 @@ BUFSIZ = 1024
 HRES = 1280
 VRES = 720
 FRAMEWIDTH = 16 # pixel allowances for OS-applied frame
-FRAMEHEIGHT = 37 
+FRAMEHEIGHT = 37
+
+# font data
+FONT = "Inconsolata.otf"
+FONTURL = "http://levien.com/type/myfonts/" + FONT
+
+# Location to fetch card back image from
+CARDBACKURL = "http://upload.wikimedia.org/wikipedia/en/a/aa/Magic_the_gathering-card_back.jpg"
+# "set code" of card images that aren't actually cards (like the card back)
+SPECIALSET = "000"
+# card info that represents the card back image
+BACK = SPECIALSET + "000000"
 
 # Parameters about card size
-THUMBSCALE = 1 # Linear scaling factor to use for small size cards
+THUMBSCALE = 0.5 # Linear scaling factor to use for small size cards
 TITLEFRACTION = 0.12 # This is the fraction of the card that should be
                     # displayed from the top for the title bar to be visible
-TYPEFRACTION = 0.625 # Fraction to display the type line and above
+TYPEFRACTION = 0.638 # Fraction to display the type line and above
 VBLACKFRACTION = 0.04 # Fraction that is a single top or bottom black border
 POWERBOX_X_FRACTION = 0.70 # horizontal place for power box on small thumbnails
 POWERBOX_Y_FRACTION = 0.475 # vertical place
-HBORDERFRACTION = 0.085 # Fraction of card for a horizontal border
+HBORDERFRACTION = 0.075 # Fraction of card for a horizontal border
 VTEXTFRACTION = 0.28 # Fraction of card for text box
 HTEXTFRACTION = 1-(2*HBORDERFRACTION)
+TEXTLINEFRACTION = 1.2 # height of line of text compared to a capital letter
 
 # This is how strong (in average intensity drop) an edge needs to be
 CREATURE_EDGE_THRESHOLD = 40 
 
 THUMBREMOVETEXT = False # cut rules text box off thumbnails.
+THUMBRETYPETEXT = True # re-types the text, leaving out any that doesn't fit
 
 
 CARDWIDTH = 220 # 265 is full width of original card images
                 # about 180 is reasonably comfortable
                 # about 130 is barely readable
-CARDHEIGHT = int(CARDWIDTH * 370/265) # aspect ratio based on wizards' card image gallery
+CARDHEIGHT = int(CARDWIDTH * 680/480) # aspect ratio based on mtgimage resolution
 
 # Derived parameters
 CARDTITLEHEIGHT = int(CARDHEIGHT * TITLEFRACTION)
@@ -78,8 +91,8 @@ GAME_PLAYHEIGHT = 700
 GAME_PLAYWIDTH = 950
 GAME_HANDWIDTH = THUMBWIDTH + 4
 GAME_HANDHEIGHT = 400
-GAME_CHATWIDTH = 120 #Characters
-GAME_CHATHEIGHT = 14 #Characters
+GAME_CHATWIDTH = GAME_PLAYWIDTH 
+GAME_CHATHEIGHT = 150
 GAME_INFOBARWIDTH = 52
 GAME_LABELSPACE = 30 # Space between the tops of indicators for life etc.
 GAME_LABELOFFSET = 12 # Shift the labels to center them WRT the life entry box

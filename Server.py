@@ -31,7 +31,7 @@ PORT = 21567
 BUFSIZ = 1024
 ADDR = (HOST, PORT)
 #setList = ['SHM','SHM','SHM']
-setList = ['SHM']
+setList = ['M14']
 
 
 class CardDataManager():
@@ -39,6 +39,7 @@ class CardDataManager():
         # Set up card lists
         f = open("Cards/AllSets.json",'r')
         s = f.read()
+        f.close()
         self.allSets = json.loads(s)
         self.sets = dict()
         self.allCards = dict() # dict of cards by multiverseID
@@ -50,11 +51,12 @@ class CardDataManager():
     def loadSet(self,setCode):
         setDict = dict()
         setDict['booster'] = self.allSets[setCode]['booster']
-        setDict['mythic rare'] = dict()
-        setDict['rare'] = dict()
-        setDict['uncommon'] = dict()
-        setDict['common'] = dict()
-        setDict['land'] = dict()
+        setDict['mythic rare'] = []
+        setDict['rare'] = []
+        setDict['uncommon'] = []
+        setDict['common'] = []
+        setDict['land'] = {'plains':[],'island':[],'swamp':[],'mountain':[],
+                           'forest':[]}
 
         for card in self.allSets[setCode]['cards']:
             # add set field to all cards, for easy reference later
@@ -124,7 +126,8 @@ class Deck():
         random.shuffle(self.cards)
 
     def pop(self, index):
-        return self.cards.pop(index)
+        card = self.cards.pop(index)
+        return card['set']+card['multiverseid']
 
     def empty(self):
         self.cards = []
@@ -181,31 +184,33 @@ class Room(Frame):
 
 class Pack():
     def __init__(self,setCode):
+        print("Started creating pack")
         self.cards = []
-        boosterFormat = guru['setCode']['booster']
+        boosterFormat = guru.allSets[setCode]['booster']
 
         makeFoil = random.random() < 0.25
         removeCommon = makeFoil
         for slot in boosterFormat:
-            if slot == 'common':
-                if removeCommon:
+            print slot
+            if slot in ("common","uncommon","rare","mythic rare"):
+                if removeCommon and slot == 'common':
                     removeCommon = False
                 else:
-                    card = random.choice(guru.sets[setCode]['common'])
+                    card = random.choice(guru.sets[setCode][slot])
+                    print card
+                    while card in self.cards:
+                        card = random.choice(guru.sets[setCode][slot])
                     self.cards.append(card)
-            elif slot in ("uncommon","rare","mythic rare"):
-                card = random.choice(guru.sets[setCode][slot])
-                self.cards.append(card)
-            #Need to hard-code in probability of mythic rare, because it's not
-            # in the json database
             elif slot == 'land':
                 landType = random.choice(guru.sets[setCode]['land'].values())
                 card = random.choice(landType)
                 self.cards.append(card)
+            #Need to hard-code in probability of mythic rare, because it's not
+            # in the json database
             elif isinstance(slot,list) and 'mythic rare' in slot:
                 mythic = random.random() < 0.125 # 1 in 8 rares is mythic
                 if mythic:
-                    card = random.choice(guru.sets[setCode]['mythic'])
+                    card = random.choice(guru.sets[setCode]['mythic rare'])
                     self.cards.append(card)
                 else:                    
                     card = random.choice(guru.sets[setCode]['rare'])
@@ -218,6 +223,8 @@ class Pack():
         if makeFoil:
             card = random.choice(guru.allSets[setCode]['cards'])
             self.cards.append(card)
+
+        print("Created pack")
             
 
         # Depricated code for using print runs
@@ -645,7 +652,7 @@ class TopWindow(Tk):
             # If you want to implement multiple sets,
             # do it with the setList and an input to Pack()
             for client in self.clients.values():
-                pack = Pack()
+                pack = Pack(nextSet)
                 client.packQueue.append(pack)
                 self.sendRobust(client, pack.toPackList())
 

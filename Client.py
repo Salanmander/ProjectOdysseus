@@ -3,13 +3,19 @@
 # This is a program for free online drafting of Magic the Gathering.
 
 from Tkinter import *
-from PIL import Image, ImageTk
+from PIL import Image, ImageTk, ImageFont, ImageDraw
 from socket import *
-import time
+from StringIO import StringIO
 import random
+import json
+import urllib
+import os
+import textwrap
+import time
 
 from protocolDefs import *
 from parameters import *
+
 
 class CardImageManager:
     def __init__(self):
@@ -19,6 +25,40 @@ class CardImageManager:
         self.thumbTapped = dict()
         self.thumb180 = dict()
         self.thumb180Tap = dict()
+
+
+        #load json database
+        f = open("Cards/AllSets.json","r")
+        s = f.read()
+        f.close()
+        self.allSets = json.loads(s)
+        self.allCards = dict() # dict of cards by multiverseID
+
+
+        if not os.path.exists(FONT):
+            u = urllib.urlretrieve(FONTURL,FONT)
+        self.font = ImageFont.truetype(FONT,10,encoding = "unic")
+        self.charsize = self.font.getsize("k")
+
+        #Special casing for loading card back image
+        card = dict()
+        setCode = "000"
+        multiverseID = "000000"
+        card['set'] = setCode
+        card['multiverseid'] = multiverseID
+        self.allCards[multiverseID] = card
+
+        d = "Cards/"+setCode
+        filename = d+"/"+multiverseID+".jpg"
+        try:
+            temp_image = Image.open(filename)
+        except IOError: # Should be thrown if file doesn't exist
+            f = StringIO(urllib.urlopen(CARDBACKURL).read())
+            temp_image = Image.open(f)
+            if not os.path.isdir(d):
+                os.makedirs(d)
+            temp_image.save(filename,"JPEG")
+        self.loadHelper(multiverseID,temp_image)
 
 
     def loadMask(self):
@@ -39,28 +79,69 @@ class CardImageManager:
         self.blankImage = Image.new("RGB",(THUMBWIDTH,THUMBHEIGHT))
 
     def loadCard(self,card):
-        filename = "Cards/EN_SHM_"+card+".jpg"
-        temp_image = Image.open(filename)
+        print ("startload")
+        t = time.time()
+        setCode =  card[0:3]
+        multiverseID = card[3:]
+        d = "Cards/"+setCode
+        filename = d+"/"+multiverseID+".jpg"
+        if not multiverseID in self.allCards:
+            self.loadSetData(setCode)
+            print (time.time() - t)
+        try:
+            temp_image = Image.open(filename)
+        except IOError: # Should be thrown if file doesn't exist
+            c = None
+            for cEntry in self.allSets[setCode]['cards']:
+                if cEntry['multiverseid'] == multiverseID:
+                    c = cEntry
+                    break
+            if c == None:
+                print("Error finding matching multiverse ID: " + setCode +
+                      " " + multiverseID)
+            else:
+                URL = "http://mtgimage.com/multiverseid/"+\
+                      c['multiverseid'].lstrip('0')+".jpg"
+                f = StringIO(urllib.urlopen(URL).read())
+                temp_image = Image.open(f)
+                if not os.path.isdir(d):
+                    os.makedirs(d)
+                temp_image.save(filename,"JPEG")
+
+        print (time.time()-t)
+        self.loadHelper(multiverseID,temp_image)
+        return
+
+    def loadHelper(self,multiverseID,temp_image):
         temp_image = temp_image.resize((CARDWIDTH,\
                                         CARDHEIGHT),Image.ANTIALIAS)
         
-        self.images[card] = ImageTk.PhotoImage(temp_image)
+        self.images[multiverseID] = ImageTk.PhotoImage(temp_image)
 
-        temp_image = self.makeThumbnail(temp_image,card)
+        # only retype the textbox text if there is rules text there
+        retypeText = THUMBRETYPETEXT and ('text' in self.allCards[multiverseID])\
+                     and (not self.allCards[multiverseID]['rarity'] == "Basic Land")
+        temp_image = self.makeThumbnail(temp_image,retypeText,multiverseID)
 
-        
-        self.thumbnails[card] = ImageTk.PhotoImage(temp_image)
+        self.thumbnails[multiverseID] = ImageTk.PhotoImage(temp_image)
 
         # We use all four cardinal orientations
         temp_image = temp_image.rotate(90)
-        self.thumb180Tap[card] = ImageTk.PhotoImage(temp_image)
+        self.thumbTapped[multiverseID] = ImageTk.PhotoImage(temp_image)
         temp_image = temp_image.rotate(90)
-        self.thumb180[card] = ImageTk.PhotoImage(temp_image)
+        self.thumb180[multiverseID] = ImageTk.PhotoImage(temp_image)
         temp_image = temp_image.rotate(90)
-        self.thumbTapped[card] = ImageTk.PhotoImage(temp_image)
+        self.thumb180Tap[multiverseID] = ImageTk.PhotoImage(temp_image)
         return
 
-    def makeThumbnail(self,fullImage,card):
+    def loadSetData(self,setCode):
+        s = self.allSets[setCode]['cards']
+        for card in s:
+            card['set'] = setCode
+            card['multiverseid'] = str(card['multiverseid']).zfill(6)
+            self.allCards[card['multiverseid']] = card
+
+    def makeThumbnail(self,fullImage,rewriteText,multiverseID = None):
         w,h = fullImage.size
         newImage = fullImage.resize((int(w*THUMBSCALE),\
                                      int(h*THUMBSCALE)),Image.ANTIALIAS)
@@ -94,9 +175,17 @@ class CardImageManager:
                 self.blankImage.paste(powerImage,(x,y),self.smallPowerMask)
 
             newImage = self.blankImage
-        else:
+        elif rewriteText:
             textBox = Image.new("RGB",(THUMBTEXTWIDTH,THUMBTEXTHEIGHT),
                                 TEXTBOXCOLOR)
+            text = self.allCards[multiverseID]['text']
+            chars = int(THUMBTEXTWIDTH/self.charsize[0])
+            lines = textwrap.wrap(text,width = chars)
+            draw = ImageDraw.Draw(textBox)
+            y = 0
+            for line in lines:
+                draw.text((1,y),line,font = self.font, fill = "Black")
+                y = y + int(self.charsize[1]*TEXTLINEFRACTION)
             newImage.paste(textBox,(int(THUMBWIDTH*HBORDERFRACTION),
                                     int(THUMBHEIGHT*TYPEFRACTION)))
             
@@ -306,13 +395,14 @@ class Draft_Card(Label):
     def __init__(self, master):
         Label.__init__(self,master)
         self.config(bd = 2, relief = SUNKEN)
-        self.show('0001')
+        self.show(BACK)
 
     def show(self,card):
-        if not card in cards.thumbnails.keys():
+        multiverseID = card[3:]
+        if not multiverseID in cards.thumbnails.keys():
             cards.loadCard(card)
             
-        self.config(image = cards.images[card])
+        self.config(image = cards.images[multiverseID])
 
 class Draft_Menu(Menu):
     def __init__(self, master):
@@ -364,12 +454,10 @@ class Draft_Pack(Frame):
 
         # This fills the rest of the panel with blank white JPEGs that don't
         # do anything. Why? So it doesn't shrink when you get fewer cards.
-        card = '0000'
+        whiteImage = Image.new("RGB",(THUMBWIDTH,THUMBHEIGHT),"White")
+        whiteImage = ImageTk.PhotoImage(whiteImage)
         for j in range(len(pack),15):
-            if not card in cards.thumbnails.keys():
-                cards.loadCard(card)
-
-            self.cardLabels[i] = Label(self, image = cards.thumbnails[card])
+            self.cardLabels[i] = Label(self, image = whiteImage)
             self.cardLabels[i].config(bg = "White")
             self.cardLabels[i].grid(row = int(i/n), column = i%n)
             i = i+1
@@ -603,10 +691,6 @@ class Game_Hand(Frame):
         # place the card.
         self.xoffset = THUMBWIDTH*0.5
         self.yoffset = THUMBHEIGHT*0.5
-
-##        for card in ('0001','0002','0251','0125','0078'):
-##            self.addCard(card)
-
         
 
     def addCard(self,card):
@@ -1027,10 +1111,12 @@ class PlayerBox(Frame):
 class SmallCard(Label):
     def __init__(self,master,card, flipped = False):
         Label.__init__(self,master)
-        if not card in cards.thumbnails.keys():
+        multiverseID = card[3:]
+        if not multiverseID in cards.thumbnails.keys():
             cards.loadCard(card)
 
         self.card = card
+        self.multiverseID = multiverseID
         self.bind("<Enter>", self.showBigCard)
         self.bind("<Button-1>", self.click)
         self.gameChecks = False
@@ -1171,25 +1257,25 @@ class SmallCard(Label):
         if self.flipped:
             if self.rotated:
                 if self.tapped:
-                    self.configure(image = cards.thumb180Tap["BACK"])
+                    self.configure(image = cards.thumb180Tap[BACK])
                 else:
-                    self.configure(image = cards.thumb180["BACK"])
+                    self.configure(image = cards.thumb180[BACK])
             else:
                 if self.tapped:
-                    self.configure(image = cards.thumbTapped["BACK"])
+                    self.configure(image = cards.thumbTapped[BACK])
                 else:
-                    self.configure(image = cards.thumbnails["BACK"])
+                    self.configure(image = cards.thumbnails[BACK])
         else:
             if self.rotated:
                 if self.tapped:
-                    self.configure(image = cards.thumb180Tap[self.card])
+                    self.configure(image = cards.thumb180Tap[self.multiverseID])
                 else:
-                    self.configure(image = cards.thumb180[self.card])
+                    self.configure(image = cards.thumb180[self.multiverseID])
             else:
                 if self.tapped:
-                    self.configure(image = cards.thumbTapped[self.card])
+                    self.configure(image = cards.thumbTapped[self.multiverseID])
                 else:
-                    self.configure(image = cards.thumbnails[self.card])
+                    self.configure(image = cards.thumbnails[self.multiverseID])
                     
 
     # This function keeps running track of the position in the master
@@ -1382,10 +1468,7 @@ class TopWindow(Tk):
                         
         self.listenID = self.after(NETLAG,self.checkNetwork)
 
-    #TODO: Update things that the message format changed: SETTAG, PLAYERLIST
-    #NEWPLAYER,READINESS, CHALLENGE (sending&receiving),
     def checkNetwork_handlePacket(self,data):
-
         print('Received: '+data)
         # Received a text message
         if data[0:2] == MESSAGE:
@@ -1534,8 +1617,8 @@ class TopWindow(Tk):
 
             pack = []
             while data:
-                pack.append(data[0:4])
-                data = data[4:]
+                pack.append(data[0:9])
+                data = data[9:]
 
             self.packQueue.append(pack)
             self.chatBox.recvMessage("You have " + str(len(self.packQueue))\
@@ -1573,8 +1656,8 @@ class TopWindow(Tk):
             data = data[3:]
             deck = []
             while data:
-                deck.append(data[0:4])
-                data = data[4:]
+                deck.append(data[0:9])
+                data = data[9:]
             self.gameWindow.showDeck(deck,playchar)
 
         elif data[0:2] == CARDPOSITION:
@@ -1871,6 +1954,5 @@ root = TopWindow()
 
 # This object holds and manipulates all the card images
 cards = CardImageManager()
-cards.loadCard("BACK")
 
 root.mainloop()
