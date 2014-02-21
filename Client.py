@@ -1,4 +1,4 @@
-# YetAnotherDraftingProgramClient.py
+# Client.py
 # Author: Alan Kraut
 # This is a program for free online drafting of Magic the Gathering.
 
@@ -998,7 +998,7 @@ class Game_Tools(Frame):
 class Game_Window(Toplevel):
     def __init__(self,master, me, opponent):
         Toplevel.__init__(self,master)
-        self.title("YADP GAME: " + me.tag + "vs." + opponent.tag)
+        self.title("Odyssey Game: " + me.tag + "vs." + opponent.tag)
 
         # make game state variables
         self.me = me
@@ -1371,7 +1371,7 @@ class SmallCard(Label):
 class TopWindow(Tk):
     def __init__(self):
         Tk.__init__(self)
-        self.title("YADP")
+        self.title("Odyssey")
         
         self.players = {}
         self.ID = None

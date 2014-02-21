@@ -1,6 +1,6 @@
-# YetAnotherDraftingProgramServer.py
+# Server.py
 # Author: Alan Kraut
-# This is the dedicated server for the YADP M:tG program.
+# This is the dedicated server for a drafting program.
 
 from Tkinter import *
 from socket import *
@@ -10,20 +10,6 @@ import json
 
 from protocolDefs import *
 
-# These are actually defined below classes, but I've
-# recorded names here for reference
-#
-# ALL numbers here are recorded as 4-character STRINGS
-# I suggest maintaining this encoding, as it makes referencing files easy
-# and their numerical relation to each other never has any effect
-#
-# rares = list of rare card numbers
-# uncommons
-# commons
-# lands = [[plains numbers],[island numbers]...etc.]
-#     indeces are given as constants PLAINS, ISLAND, etc. above
-# runsFormat = "2%06=2%05"
-# runs = [[runA card numbers],[runB card numbers]...etc.]
 
 NETLAG = 1 #number of miliseconds between checking the network
 HOST = 'localhost'
