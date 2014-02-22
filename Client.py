@@ -36,10 +36,11 @@ class CardImageManager:
 
 
         if not os.path.exists(FONT):
-            u = urllib.urlretrieve(FONTURL,FONT)
+            urllib.urlretrieve(FONTURL,FONT)
         self.font = ImageFont.truetype(FONT,10,encoding = "unic")
         self.charsize = self.font.getsize("k")
 
+    def loadCardBack(self):
         #Special casing for loading card back image
         card = dict()
         setCode = "000"
@@ -63,7 +64,7 @@ class CardImageManager:
 
     def loadMask(self):
         # load mask for finding power/toughness box
-        self.powerBoxMask = Image.open("Cards/powerBoxMask.png")
+        self.powerBoxMask = Image.open(PTBOX)
         # Convert mask to greyscale (mode "L")
         self.powerBoxMask = self.powerBoxMask.convert("L")
         w = CARDWIDTH
@@ -149,7 +150,7 @@ class CardImageManager:
             # get the power/toughness box
             powerImage = newImage.crop(self.powerBoxMask.getbbox())
 
-            creature = self.isCreature(powerImage)
+            creature = self.isCreature(multiverseID)
             
             # Get top of card and bottom border, then paste them together
             w,h = newImage.size
@@ -192,26 +193,28 @@ class CardImageManager:
             
         return newImage
 
-    def isCreature(self,im):
-        # Convert to greyscale
-        im = im.convert("L")
-        w,h = im.size
-
-        # There should be a strong edge between 5 and 6 pixels from the bottom
-        # average pixel differences along there, NOT doing abs value
-        pix = im.load()
-
-        
-        # search the bottom half of the image for a strong edge
-        # ignoring the bottom two rows because of edge effects of downscaling
-        for row in range(h-3,int(h/2),-1):
-            diff = 0
-            for col in range(w):
-                diff = diff + (pix[col,row]-pix[col,row-1])
-            aveDiff = diff/w
-            if abs(aveDiff)> CREATURE_EDGE_THRESHOLD:
-                return True
-        return False
+    def isCreature(self,multiverseID):
+        return 'toughness' in self.allCards[multiverseID]
+        #Obsolete code for using image processing to determine if it's a creature
+##        # Convert to greyscale
+##        im = im.convert("L")
+##        w,h = im.size
+##
+##        # There should be a strong edge between 5 and 6 pixels from the bottom
+##        # average pixel differences along there, NOT doing abs value
+##        pix = im.load()
+##
+##        
+##        # search the bottom half of the image for a strong edge
+##        # ignoring the bottom two rows because of edge effects of downscaling
+##        for row in range(h-3,int(h/2),-1):
+##            diff = 0
+##            for col in range(w):
+##                diff = diff + (pix[col,row]-pix[col,row-1])
+##            aveDiff = diff/w
+##            if abs(aveDiff)> CREATURE_EDGE_THRESHOLD:
+##                return True
+##        return False
 
 
 class ChatBox(Frame):
@@ -1418,7 +1421,9 @@ class TopWindow(Tk):
         self.createWaitingRoomWidgets()
 
         # Do setting-dependant initialization of card manager
-        cards.loadMask()
+        if THUMBREMOVETEXT:
+            cards.loadMask()
+        cards.loadCardBack()
                         
         # Set real IP address
         self.addr = (host,port)

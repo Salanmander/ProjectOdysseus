@@ -7,7 +7,9 @@ from socket import *
 import time
 import random
 import json
+import urllib
 
+from parameters import *
 from protocolDefs import *
 
 
@@ -17,13 +19,17 @@ PORT = 21567
 BUFSIZ = 1024
 ADDR = (HOST, PORT)
 #setList = ['SHM','SHM','SHM']
-setList = ['M14']
+setList = ['SHM']
 
 
 class CardDataManager():
     def __init__(self):
         # Set up card lists
-        f = open("Cards/AllSets.json",'r')
+        try:
+            f = open(JSON,'r')
+        except IOError: # if file doesn't exist
+            urllib.urlretrieve(JSONURL,JSON)
+            f = open(JSON,'r')
         s = f.read()
         f.close()
         self.allSets = json.loads(s)

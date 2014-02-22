@@ -14,15 +14,21 @@ FRAMEHEIGHT = 37
 FONT = "Inconsolata.otf"
 FONTURL = "http://levien.com/type/myfonts/" + FONT
 
+# json database location
+JSON = "Cards/AllSets.json"
+JSONURL = "http://mtgjson.com/json/AllSets.json"
+
 # Location to fetch card back image from
 CARDBACKURL = "http://upload.wikimedia.org/wikipedia/en/a/aa/Magic_the_gathering-card_back.jpg"
 # "set code" of card images that aren't actually cards (like the card back)
 SPECIALSET = "000"
 # card info that represents the card back image
 BACK = SPECIALSET + "000000"
+# file path that gives the mask for the power/toughness box
+PTBOX = "Cards/" + SPECIALSET + "/powerBoxMask.png"
 
 # Parameters about card size
-THUMBSCALE = 0.5 # Linear scaling factor to use for small size cards
+THUMBSCALE = 1 # Linear scaling factor to use for small size cards
 TITLEFRACTION = 0.12 # This is the fraction of the card that should be
                     # displayed from the top for the title bar to be visible
 TYPEFRACTION = 0.638 # Fraction to display the type line and above
@@ -37,7 +43,7 @@ TEXTLINEFRACTION = 1.2 # height of line of text compared to a capital letter
 # This is how strong (in average intensity drop) an edge needs to be
 CREATURE_EDGE_THRESHOLD = 40 
 
-THUMBREMOVETEXT = False # cut rules text box off thumbnails.
+THUMBREMOVETEXT = True # cut rules text box off thumbnails.
 THUMBRETYPETEXT = True # re-types the text, leaving out any that doesn't fit
 
 
@@ -87,8 +93,10 @@ GAME_MESSAGENUM = 15
 GAME_MESSAGES = ("At the end of your turn...","Untap/upkeep/draw.",\
                  "Main phase.","Combat phase.","Hold on...","Your turn.",\
                  "Declare no blockers.")
-GAME_PLAYHEIGHT = 700
-GAME_PLAYWIDTH = 950
+GAME_PLAYHEIGHT_BASE = 1400  # Game window dimensions if the cards are full 
+GAME_PLAYWIDTH_BASE = 1900   # scale.
+GAME_PLAYHEIGHT = GAME_PLAYHEIGHT_BASE*THUMBSCALE
+GAME_PLAYWIDTH = GAME_PLAYWIDTH_BASE*THUMBSCALE
 GAME_HANDWIDTH = THUMBWIDTH + 4
 GAME_HANDHEIGHT = 400
 GAME_CHATWIDTH = GAME_PLAYWIDTH 
