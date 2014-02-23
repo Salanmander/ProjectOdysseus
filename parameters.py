@@ -1,5 +1,6 @@
+
 NETLAG = 1 # number of miliseconds between checking the network
-TAG = 'YoungPadawan'
+TAG = 'Player'
 HOST = 'localhost'
 PORT = 21567
 BUFSIZ = 1024
@@ -14,8 +15,18 @@ FRAMEHEIGHT = 37
 FONT = "Inconsolata.otf"
 FONTURL = "http://levien.com/type/myfonts/" + FONT
 
+# directory to store card images. I have this set up to check for
+# a file that isn't currently being listed by github so that people can
+# easily use a different directory during dev.
+try:
+    f = open('config.ini')
+    CARDDIR = f.readline()
+    f.close()
+except:
+    CARDDIR = "Cards/"
+
 # json database location
-JSON = "Cards/AllSets.json"
+JSON = CARDDIR + "AllSets.json"
 JSONURL = "http://mtgjson.com/json/AllSets.json"
 
 # Location to fetch card back image from
@@ -25,14 +36,14 @@ SPECIALSET = "000"
 # card info that represents the card back image
 BACK = SPECIALSET + "000000"
 # file path that gives the mask for the power/toughness box
-PTBOX = "Cards/" + SPECIALSET + "/powerBoxMask.png"
+PTBOX = CARDDIR + SPECIALSET + "/powerBoxMask.png"
 
 # Parameters about card size
-THUMBSCALE = 1 # Linear scaling factor to use for small size cards
+THUMBSCALE = 0.5 # Linear scaling factor to use for small size cards
 TITLEFRACTION = 0.12 # This is the fraction of the card that should be
                     # displayed from the top for the title bar to be visible
 TYPEFRACTION = 0.638 # Fraction to display the type line and above
-VBLACKFRACTION = 0.04 # Fraction that is a single top or bottom black border
+VBLACKFRACTION = 0.02 # Fraction that is a single top or bottom black border
 POWERBOX_X_FRACTION = 0.70 # horizontal place for power box on small thumbnails
 POWERBOX_Y_FRACTION = 0.475 # vertical place
 HBORDERFRACTION = 0.075 # Fraction of card for a horizontal border
@@ -43,7 +54,7 @@ TEXTLINEFRACTION = 1.2 # height of line of text compared to a capital letter
 # This is how strong (in average intensity drop) an edge needs to be
 CREATURE_EDGE_THRESHOLD = 40 
 
-THUMBREMOVETEXT = True # cut rules text box off thumbnails.
+THUMBREMOVETEXT = False # cut rules text box off thumbnails.
 THUMBRETYPETEXT = True # re-types the text, leaving out any that doesn't fit
 
 

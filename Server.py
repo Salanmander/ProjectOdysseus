@@ -8,6 +8,7 @@ import time
 import random
 import json
 import urllib
+import os
 
 from parameters import *
 from protocolDefs import *
@@ -469,16 +470,25 @@ class TopWindow(Tk):
             client.deck.shuffle()
 
         elif data[0:2] == LANDLIST:
+            print "adding lands"
             data = data[2:]
             # Go through each land type
-            for landType in (PLAINS, ISLAND, SWAMP, MOUNTAIN, FOREST):
+            for landType in ((PLAINS,"plains"), (ISLAND,"island"),
+                             (SWAMP,"swamp"), (MOUNTAIN,"mountain"),
+                             (FOREST,"forest")):
+                print landType
                 # Get the appropriate number
-                index = 2*landType
+                index = 2*landType[0]
                 num = int(data[index:index+2])
+                print num
                 # Add that many lands of that type
                 for i in range(num):
-                    card = random.choice(lands[landType])
-                    client.deck.append(card)
+                    print guru.sets.keys()
+                    s = random.choice(guru.sets.values())
+                    print s.keys()
+                    print s['land'].keys()
+                    card = random.choice(s['land'][landType[1]])
+                    client.deck.append(card['set']+card['multiverseid'])
 
             # We'll never want the deck in sorted order
             client.deck.shuffle()
@@ -762,7 +772,9 @@ class TopWindow(Tk):
         for recipient in self.clients.values():
             self.sendRobust(recipient, data)
 
-        
+
+if not os.path.isdir(CARDDIR):
+    os.makedirs(CARDDIR)
 
 guru = CardDataManager()
 

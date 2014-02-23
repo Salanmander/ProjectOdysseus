@@ -28,7 +28,14 @@ class CardImageManager:
 
 
         #load json database
-        f = open("Cards/AllSets.json","r")
+        try:
+            f = open(JSON,'r')
+        except IOError: # if file doesn't exist
+            print("Downloading data about EVERY MAGIC CARD EVER. (~10 MB)")
+            print("This may take a little while.")
+            print("(Have I mentioned that we're living in the future?)")
+            urllib.urlretrieve(JSONURL,JSON)
+            f = open(JSON,'r')
         s = f.read()
         f.close()
         self.allSets = json.loads(s)
@@ -49,7 +56,7 @@ class CardImageManager:
         card['multiverseid'] = multiverseID
         self.allCards[multiverseID] = card
 
-        d = "Cards/"+setCode
+        d = CARDDIR+setCode
         filename = d+"/"+multiverseID+".jpg"
         try:
             temp_image = Image.open(filename)
@@ -84,7 +91,7 @@ class CardImageManager:
         t = time.time()
         setCode =  card[0:3]
         multiverseID = card[3:]
-        d = "Cards/"+setCode
+        d = CARDDIR+setCode
         filename = d+"/"+multiverseID+".jpg"
         if not multiverseID in self.allCards:
             self.loadSetData(setCode)
@@ -371,7 +378,10 @@ class Deck_LandOptions(Frame):
                                   columnspan = 4, pady = 20)
         
     def getLandData(self):
+        print("Getting land data")
+        print self.plainsBox.get()
         plains = self.plainsBox.get().zfill(2)
+        print plains
         islands = self.islandBox.get().zfill(2)
         swamps = self.swampBox.get().zfill(2)
         mountains = self.mountainBox.get().zfill(2)
@@ -416,10 +426,10 @@ class Draft_Menu(Menu):
         self.add_cascade(label = "File", menu = self.filemenu)
         self.filemenu.add_command(label = "Quit", command = root.quitGame)
 
-        self.gamemenu = Menu(self)
-        self.add_cascade(label = "Game", menu = self.gamemenu)
-        self.gamemenu.add_command(label = "Ready", command = self.setReady)
-        self.gamemenu.add_command(label = "Not ready", command = self.setUnready)
+##        self.gamemenu = Menu(self)
+##        self.add_cascade(label = "Game", menu = self.gamemenu)
+##        self.gamemenu.add_command(label = "Ready", command = self.setReady)
+##        self.gamemenu.add_command(label = "Not ready", command = self.setUnready)
 
     def setReady(self):
         root.send(READINESS + "1")
@@ -956,7 +966,7 @@ class Game_Tools(Frame):
         root.send(VIEWDECK + "1")
 
     def tokenMake(self):
-        self.master.playBox.addCard("BACK")
+        self.master.playBox.addCard(BACK)
 
     def tokenDestroy(self):
         self.unpressAll()
@@ -1205,8 +1215,7 @@ class SmallCard(Label):
                 top.showBigCard(self.card)
 
             elif top.tokenDestroy:
-                print self.card
-                if self.card == "BACK":
+                if self.card == BACK:
                     self.master.removeCard(self)
                     
                 
@@ -1867,25 +1876,21 @@ class TopWindow(Tk):
 
     def game_start(self, opponentID):
         # Give the server your deck
-        print('1')
         data = DECKLIST
         for cardLabel in self.deckBox.cardLabels:
             data = data + cardLabel.card 
         self.send(data)
 
-        print('2')
         data = LANDLIST
         data = data + self.landBox.getLandData()
         self.send(data)
 
-        print('3')
         # Keep around a reference to who your opponent is
         self.opponentID = opponentID
 
         # Game widgets go in a new window
         self.gameWindow = Game_Window(self, self.players[self.ID],\
                                       self.players[opponentID])
-        print('4')
         self.send(DECKSIZES)
         
 
@@ -1955,6 +1960,8 @@ class WaitingMenu(Menu):
     def setUnready(self):
         root.send(READINESS + "0")
 
+if not os.path.isdir(CARDDIR):
+    os.makedirs(CARDDIR)
 root = TopWindow()
 
 # This object holds and manipulates all the card images
