@@ -45,7 +45,7 @@ class CardImageManager:
         if not os.path.exists(FONT):
             urllib.urlretrieve(FONTURL,FONT)
         self.font = ImageFont.truetype(FONT,10,encoding = "unic")
-        self.charsize = self.font.getsize("k")
+        self.charsize = self.font.getsize("M")
 
     def loadCardBack(self):
         #Special casing for loading card back image
@@ -74,17 +74,17 @@ class CardImageManager:
         self.powerBoxMask = Image.open(PTBOX)
         # Convert mask to greyscale (mode "L")
         self.powerBoxMask = self.powerBoxMask.convert("L")
-        w = CARDWIDTH
-        h = CARDHEIGHT
+        w = opts['cardwidth']
+        h = opts['cardheight']
         # Resize to thumbnail size, won't use for full cards
-        self.powerBoxMask = self.powerBoxMask.resize((int(w*THUMBSCALE),\
-                                                      int(h*THUMBSCALE)),Image.ANTIALIAS)
+        self.powerBoxMask = self.powerBoxMask.resize((int(w*opts['thumbscale']),\
+                                                      int(h*opts['thumbscale'])),Image.ANTIALIAS)
         # Also get closely bounded mask
         self.smallPowerMask = self.powerBoxMask.crop(self.powerBoxMask.getbbox())
         # These are images we overwrite frequently, may have arbitrary data
-        self.powerBackground = Image.new("RGB",(int(w*THUMBSCALE),\
-                                                int(h*THUMBSCALE)))
-        self.blankImage = Image.new("RGB",(THUMBWIDTH,THUMBHEIGHT))
+        self.powerBackground = Image.new("RGB",(int(w*opts['thumbscale']),\
+                                                int(h*opts['thumbscale'])))
+        self.blankImage = Image.new("RGB",(opts['thumbwidth'],opts['thumbheight']))
 
     def loadCard(self,card):
         print ("startload")
@@ -121,13 +121,13 @@ class CardImageManager:
         return
 
     def loadHelper(self,multiverseID,temp_image):
-        temp_image = temp_image.resize((CARDWIDTH,\
-                                        CARDHEIGHT),Image.ANTIALIAS)
+        temp_image = temp_image.resize((opts['cardwidth'],\
+                                        opts['cardheight']),Image.ANTIALIAS)
         
         self.images[multiverseID] = ImageTk.PhotoImage(temp_image)
 
         # only retype the textbox text if there is rules text there
-        retypeText = THUMBRETYPETEXT and ('text' in self.allCards[multiverseID])\
+        retypeText = opts['thumbretypetext'] and ('text' in self.allCards[multiverseID])\
                      and (not self.allCards[multiverseID]['rarity'] == "Basic Land")
         temp_image = self.makeThumbnail(temp_image,retypeText,multiverseID)
 
@@ -151,9 +151,9 @@ class CardImageManager:
 
     def makeThumbnail(self,fullImage,rewriteText,multiverseID = None):
         w,h = fullImage.size
-        newImage = fullImage.resize((int(w*THUMBSCALE),\
-                                     int(h*THUMBSCALE)),Image.ANTIALIAS)
-        if(THUMBREMOVETEXT):
+        newImage = fullImage.resize((int(w*opts['thumbscale']),\
+                                     int(h*opts['thumbscale'])),Image.ANTIALIAS)
+        if(opts['thumbremovetext']):
             # get the power/toughness box
             powerImage = newImage.crop(self.powerBoxMask.getbbox())
 
@@ -162,12 +162,12 @@ class CardImageManager:
             # Get top of card and bottom border, then paste them together
             w,h = newImage.size
             topPixels = int(h*TYPEFRACTION)
-            # THUMBHEIGHT is calculated using VBLACKFRACTION, so
-            # THUMBHEIGHT-topPixels is the number of pixels we have left
+            # opts['thumbheight'] is calculated using VBLACKFRACTION, so
+            # opts['thumbheight']-topPixels is the number of pixels we have left
             # for the bottom border. This is done so that the height of
-            # the new image will exactly match THUMBHEIGHT, regardless of
+            # the new image will exactly match opts['thumbheight'], regardless of
             # rounding.
-            bottomBorder = newImage.crop((0,h-(THUMBHEIGHT-topPixels),\
+            bottomBorder = newImage.crop((0,h-(opts['thumbheight']-topPixels),\
                                           w,h))
             newImage = newImage.crop((0,0,w,topPixels))
 
@@ -184,18 +184,18 @@ class CardImageManager:
 
             newImage = self.blankImage
         elif rewriteText:
-            textBox = Image.new("RGB",(THUMBTEXTWIDTH,THUMBTEXTHEIGHT),
+            textBox = Image.new("RGB",(opts['thumbtextwidth'],opts['thumbtextheight']),
                                 TEXTBOXCOLOR)
             text = self.allCards[multiverseID]['text']
-            chars = int(THUMBTEXTWIDTH/self.charsize[0])
+            chars = int(opts['thumbtextwidth']/self.charsize[0])
             lines = textwrap.wrap(text,width = chars)
             draw = ImageDraw.Draw(textBox)
             y = 0
             for line in lines:
                 draw.text((1,y),line,font = self.font, fill = "Black")
                 y = y + int(self.charsize[1]*TEXTLINEFRACTION)
-            newImage.paste(textBox,(int(THUMBWIDTH*HBORDERFRACTION),
-                                    int(THUMBHEIGHT*TYPEFRACTION)))
+            newImage.paste(textBox,(int(opts['thumbwidth']*HBORDERFRACTION),
+                                    int(opts['thumbheight']*TYPEFRACTION)))
             
             
         return newImage
@@ -258,6 +258,8 @@ class ChatBox(Frame):
         self.entry.pack(side = BOTTOM, fill = X)
         self.scrollbar.pack(side = RIGHT, fill = Y)
         self.display.pack(side = TOP, fill = BOTH, expand = 1)
+
+
         
 
 
@@ -293,14 +295,14 @@ class ChatBox(Frame):
 class Deck_DeckBox(Frame):
     def __init__(self,master):
         Frame.__init__(self,master)
-        self.config(height = DRAFT_PICKEDHEIGHT, \
-                    width = DRAFT_PICKEDWIDTH + CARDWIDTH)
+        self.config(height = opts['draft_pickedheight'], \
+                    width = opts['draft_pickedwidth'] + opts['cardwidth'])
         self.config(bd = 2, relief = RIDGE)
         self.config(bg = 'White')
         self.cardLabels = []
 
-        self.cardsPerCol = (DRAFT_PICKEDHEIGHT - THUMBHEIGHT + THUMBTITLEHEIGHT)\
-                           / THUMBTITLEHEIGHT # Amount of space we have for
+        self.cardsPerCol = (opts['draft_pickedheight'] - opts['thumbheight'] + opts['thumbtitleheight'])\
+                           / opts['thumbtitleheight'] # Amount of space we have for
                                               # headers, divided by the width
                                               # of a header
 
@@ -310,13 +312,13 @@ class Deck_DeckBox(Frame):
 
         row = (len(self.cardLabels)-1)%self.cardsPerCol
         col = int((len(self.cardLabels)-1)/self.cardsPerCol)
-        y = row*THUMBTITLEHEIGHT
-        x = col*THUMBWIDTH*1.1 #leave some space between columns
+        y = row*opts['thumbtitleheight']
+        x = col*opts['thumbwidth']*1.1 #leave some space between columns
         
         # We're anchoring at the center, so we need to add these to where we
         # place the card.
-        xoffset = THUMBWIDTH*0.5
-        yoffset = THUMBHEIGHT*0.5
+        xoffset = opts['thumbwidth']*0.5
+        yoffset = opts['thumbheight']*0.5
                           
         
         self.cardLabels[-1].config(bd = 0)
@@ -455,7 +457,7 @@ class Draft_Pack(Frame):
         # For each card, if we don't already have the image set, get it.
         # Then make a label.
         self.cardLabels = [None]*15
-        n = DRAFT_PACK_CARDSPERROW
+        n = opts['draft_pack_cardsperrow']
         i = 0
         for card in pack:
             self.cardLabels[i] = SmallCard(self, card)
@@ -467,7 +469,7 @@ class Draft_Pack(Frame):
 
         # This fills the rest of the panel with blank white JPEGs that don't
         # do anything. Why? So it doesn't shrink when you get fewer cards.
-        whiteImage = Image.new("RGB",(THUMBWIDTH,THUMBHEIGHT),"White")
+        whiteImage = Image.new("RGB",(opts['thumbwidth'],opts['thumbheight']),"White")
         whiteImage = ImageTk.PhotoImage(whiteImage)
         for j in range(len(pack),15):
             self.cardLabels[i] = Label(self, image = whiteImage)
@@ -492,14 +494,14 @@ class Draft_Pack(Frame):
 class Draft_PickedCards(Frame):
     def __init__(self,master):
         Frame.__init__(self,master)
-        self.config(height = DRAFT_PICKEDHEIGHT, width = DRAFT_PICKEDWIDTH)
+        self.config(height = opts['draft_pickedheight'], width = opts['draft_pickedwidth'])
         self.config(bd = 2, relief = RIDGE)
         self.config(bg = 'White')
         self.cardLabels = []
         self.canMoveToDeck = False # Initially the deck window doesn't exist
 
-        self.cardsPerCol = (DRAFT_PICKEDHEIGHT - THUMBHEIGHT + THUMBTITLEHEIGHT)\
-                           / THUMBTITLEHEIGHT # Amount of space we have for
+        self.cardsPerCol = (opts['draft_pickedheight'] - opts['thumbheight'] + opts['thumbtitleheight'])\
+                           / opts['thumbtitleheight'] # Amount of space we have for
                                               # headers, divided by the width
                                               # of a header
 
@@ -509,13 +511,13 @@ class Draft_PickedCards(Frame):
 
         row = (len(self.cardLabels)-1)%self.cardsPerCol
         col = int((len(self.cardLabels)-1)/self.cardsPerCol)
-        y = row*THUMBTITLEHEIGHT
-        x = col*THUMBWIDTH*1.1 #leave some space between columns
+        y = row*opts['thumbtitleheight']
+        x = col*opts['thumbwidth']*1.1 #leave some space between columns
 
         # We're anchoring at the center, so we need to add these to where we
         # place the card.
-        xoffset = THUMBWIDTH*0.5
-        yoffset = THUMBHEIGHT*0.5
+        xoffset = opts['thumbwidth']*0.5
+        yoffset = opts['thumbheight']*0.5
         
         self.cardLabels[-1].config(bd = 0)
         self.cardLabels[-1].place(x = x + xoffset, y = y + yoffset, \
@@ -552,12 +554,12 @@ class Game_DeckWindow(Toplevel):
                                  # back to the server with which player's
                                  # deck we're looking at.
 
-        self.cardsPerCol = GAME_DECKROWS # Arbitrary number
+        self.cardsPerCol = opts['game_deckrows'] # Arbitrary number
         self.cols = len(deck)/self.cardsPerCol+1
 
         self.backing = Frame(self)
-        height = self.cardsPerCol*THUMBTITLEHEIGHT+THUMBHEIGHT
-        width = int(self.cols * THUMBWIDTH * 1.1)
+        height = self.cardsPerCol*opts['thumbtitleheight']+opts['thumbheight']
+        width = int(self.cols * opts['thumbwidth'] * 1.1)
         
         self.backing.config(height = height, width = width)
         self.backing.config(bd = 2, relief = RIDGE)
@@ -580,13 +582,13 @@ class Game_DeckWindow(Toplevel):
 
         row = (len(self.cardLabels)-1)%self.cardsPerCol
         col = int((len(self.cardLabels)-1)/self.cardsPerCol)
-        y = row*THUMBTITLEHEIGHT
-        x = col*THUMBWIDTH*1.1 #leave some space between columns
+        y = row*opts['thumbtitleheight']
+        x = col*opts['thumbwidth']*1.1 #leave some space between columns
 
         # We're anchoring at the center, so we need to add these to where we
         # place the card.
-        xoffset = THUMBWIDTH*0.5 + 2
-        yoffset = THUMBHEIGHT*0.5 + 2
+        xoffset = opts['thumbwidth']*0.5 + 2
+        yoffset = opts['thumbheight']*0.5 + 2
         
         self.cardLabels[-1].config(bd = 0)
         self.cardLabels[-1].place(x = x + xoffset, y = y + yoffset, \
@@ -621,7 +623,7 @@ class Game_Display(Frame):
     def __init__(self,master):
         Frame.__init__(self,master)
 
-        self.config(width = GAME_INFOBARWIDTH, height = GAME_PLAYHEIGHT)
+        self.config(width = opts['game_infobarwidth'], height = opts['game_playheight'])
         self.opponentLife = 20
         self.opponentDeck = 0
         self.opponentHand = 0
@@ -651,13 +653,13 @@ class Game_Display(Frame):
 
         self.deckLabel = Label(self, text = "Deck\n"+str(self.deck))
 
-        self.opponentLifeLabel.place(x = GAME_LABELOFFSET, y = 0)
-        self.opponentDeckLabel.place(x = GAME_LABELOFFSET, y = GAME_LABELSPACE)
-        self.opponentHandLabel.place(x = GAME_LABELOFFSET, y = 2*GAME_LABELSPACE)
+        self.opponentLifeLabel.place(x = opts['game_labeloffset'], y = 0)
+        self.opponentDeckLabel.place(x = opts['game_labeloffset'], y = opts['game_labelspace'])
+        self.opponentHandLabel.place(x = opts['game_labeloffset'], y = 2*opts['game_labelspace'])
         
-        self.lifeFrame.place(x = 0, y = GAME_PLAYHEIGHT / 2)
-        self.deckLabel.place(x = GAME_LABELOFFSET, \
-                             y = GAME_PLAYHEIGHT/2 + GAME_LABELSPACE)
+        self.lifeFrame.place(x = 0, y = opts['game_playheight'] / 2)
+        self.deckLabel.place(x = opts['game_labeloffset'], \
+                             y = opts['game_playheight']/2 + opts['game_labelspace'])
 
     def life_add(self):
         self.life = self.life + 1
@@ -695,15 +697,15 @@ class Game_Display(Frame):
 class Game_Hand(Frame):
     def __init__(self,master):
         Frame.__init__(self,master)
-        self.config(width = GAME_HANDWIDTH, height = GAME_HANDHEIGHT)
+        self.config(width = opts['game_handwidth'], height = opts['game_handheight'])
         self.config(bd = 2, relief = RIDGE)
         self.config(bg = 'White')
         self.cardLabels = []
 
         # We're anchoring at the center, so we need to add these to where we
         # place the card.
-        self.xoffset = THUMBWIDTH*0.5
-        self.yoffset = THUMBHEIGHT*0.5
+        self.xoffset = opts['thumbwidth']*0.5
+        self.yoffset = opts['thumbheight']*0.5
         
 
     def addCard(self,card):
@@ -711,7 +713,7 @@ class Game_Hand(Frame):
         self.cardLabels.append(SmallCard(self, card))
 
         pos = (len(self.cardLabels)-1)
-        y = pos*THUMBTITLEHEIGHT
+        y = pos*opts['thumbtitleheight']
         
         self.cardLabels[-1].config(bd = 0)
         self.cardLabels[-1].place(x = self.xoffset, y = y + self.yoffset, \
@@ -750,7 +752,7 @@ class Game_Hand(Frame):
     def redisplay(self):
         
         for i in range(len(self.cardLabels)):
-            y = i*THUMBTITLEHEIGHT
+            y = i*opts['thumbtitleheight']
             self.cardLabels[i].place(x = self.xoffset, y = y+self.yoffset,\
                                      anchor = CENTER)
             self.cardLabels[i].lift()
@@ -760,16 +762,16 @@ class Game_Messages(Frame):
     def __init__(self,master):
         Frame.__init__(self,master)
         self.messageBoxes = []
-        for i in range(GAME_MESSAGENUM):
+        for i in range(opts['game_messagenum']):
             newBox = Entry(self)
-            newBox.config(width = GAME_MESSAGEWIDTH)
+            newBox.config(width = opts['game_messagewidth'])
             newBox.bind("<Return>",self.send)
             newBox.pack(pady = 3)
             
             # These pre-made messages are defined
             # at the top of the file
-            if i < len(GAME_MESSAGES):
-                newBox.insert(END,GAME_MESSAGES[i])
+            if i < len(opts['game_messages']):
+                newBox.insert(END,opts['game_messages'][i])
             self.messageBoxes.append(newBox)
 
     def send(self, event):
@@ -782,22 +784,22 @@ class Game_Messages(Frame):
 class Game_PlayArea(Frame):
     def __init__(self,master):
         Frame.__init__(self,master)
-        self.config(width = GAME_PLAYWIDTH, height = GAME_PLAYHEIGHT)
+        self.config(width = opts['game_playwidth'], height = opts['game_playheight'])
         self.config(bd = 2, relief = RIDGE)
         self.config(bg = 'White')
         self.cardLabels = []
         self.cardIDList = []
         self.tapHelperQueue = []
 
-        self.cardsPerCol = (GAME_PLAYHEIGHT - THUMBHEIGHT + THUMBTITLEHEIGHT)\
-                           / THUMBTITLEHEIGHT # Amount of space we have for
+        self.cardsPerCol = (opts['game_playheight'] - opts['thumbheight'] + opts['thumbtitleheight'])\
+                           / opts['thumbtitleheight'] # Amount of space we have for
                                               # headers, divided by the width
                                               # of a header
                                               
-        self.dividerLabel = Label(self, width = GAME_PLAYWIDTH, height = 2,\
+        self.dividerLabel = Label(self, width = opts['game_playwidth'], height = 2,\
                                   bd = 0, bg = 'Black', bitmap = "gray75")
         self.topOfBottom = self.dividerLabel
-        self.dividerLabel.place(x = 0, y = GAME_PLAYHEIGHT/2, anchor = W)
+        self.dividerLabel.place(x = 0, y = opts['game_playheight']/2, anchor = W)
 
     def addCard(self,card,flipped = False, newID = None, sendNote = True):
         # Find what the ID of the new card will be
@@ -825,12 +827,12 @@ class Game_PlayArea(Frame):
                 fchar = "R"
             root.send(NEWPLAYCARD + fchar + str(newID).zfill(3) + card) 
         
-        xoffset = THUMBWIDTH*0.5
-        yoffset = THUMBHEIGHT*0.5
+        xoffset = opts['thumbwidth']*0.5
+        yoffset = opts['thumbheight']*0.5
         
         self.cardLabels[-1].config(bd = 0)
         # Always place at lower left
-        self.cardLabels[-1].place(x = xoffset, y = GAME_PLAYHEIGHT - yoffset, \
+        self.cardLabels[-1].place(x = xoffset, y = opts['game_playheight'] - yoffset, \
                                   anchor = CENTER)
         
         self.cardLabels[-1].updatePosition(sendNote = sendNote)
@@ -1024,27 +1026,45 @@ class Game_Window(Toplevel):
         self.peekAtCard = False
         self.tokenDestroy = False
 
-        
         # create widgets
+        print 'a'
         self.playBox = Game_PlayArea(self)
+        print 'b'
         self.handBox = Game_Hand(self)
+        print 'c'
         
         self.chatBox = ChatBox(self, sendType = GAME)
-        self.chatBox.resize(GAME_CHATWIDTH,GAME_CHATHEIGHT)
+        print 'd'
+        print opts['game_chatwidth']
+        self.chatBox.resize(opts['game_chatwidth'],opts['game_chatheight'])
         
         self.cardBox = Draft_Card(self)
+        print 'e'
         self.displayBar = Game_Display(self)
+        print 'f'
         self.toolBox = Game_Tools(self)
+        print 'g'
         self.messagesBox = Game_Messages(self)
-        
-        self.playBox.grid(row = 0, column= 3, rowspan = 3)
-        self.handBox.grid(row = 2, column = 0, rowspan = 2)
-        self.displayBar.grid(row = 0, column = 2, rowspan = 3)
-        self.chatBox.grid(row = 3, column = 2, columnspan = 2)
-        self.cardBox.grid(row = 0, column = 0, columnspan = 2)
-        self.toolBox.grid(row = 1, column = 0, columnspan = 2)
-        self.messagesBox.grid(row = 2, column = 1, rowspan = 2)
-                                    
+        print 'a'
+
+        g = opts['game_grids']
+        print g
+        self.playBox.grid(row = g['playr'], column= g['playc'],
+                          rowspan = g['playrs'])
+        self.handBox.grid(row = g['handr'], column = g['handc'],
+                          rowspan = g['handrs'])
+        self.displayBar.grid(row = g['dispr'], column = g['dispc'],
+                             rowspan = g['disprs'])
+        self.chatBox.grid(row = g['chatr'], column = g['chatc'],
+                          columnspan = g['chatcs'])
+        self.cardBox.grid(row = g['cardr'], column = g['cardc'],
+                          columnspan = g['cardcs'])
+        self.toolBox.grid(row = g['toolr'], column = g['toolc'],
+                          columnspan = g['toolcs'])
+        self.messagesBox.grid(row = g['messr'], column = g['messc'],
+                              rowspan = g['messrs'])
+
+                
 
 
     def showBigCard(self,card):
@@ -1233,14 +1253,14 @@ class SmallCard(Label):
         movey = event.y_root-self.clickedy
         newx = self.oldx + movex
         newy = self.oldy + movey
-        if newx < -(THUMBWIDTH/2) + 4:
-            newx = -(THUMBWIDTH/2) + 4
-        elif newx > int(self.master.cget('width')) + (THUMBWIDTH/2) - 8:
-            newx = int(self.master.cget('width')) + (THUMBWIDTH/2) - 8
-        if newy < -(THUMBHEIGHT/2) + 4:
-            newy = -(THUMBHEIGHT/2) + 4
-        elif newy > int(self.master.cget('height')) + (THUMBHEIGHT/2) - 8:
-            newy = int(self.master.cget('height')) + (THUMBHEIGHT/2) - 8
+        if newx < -(opts['thumbwidth']/2) + 4:
+            newx = -(opts['thumbwidth']/2) + 4
+        elif newx > int(self.master.cget('width')) + (opts['thumbwidth']/2) - 8:
+            newx = int(self.master.cget('width')) + (opts['thumbwidth']/2) - 8
+        if newy < -(opts['thumbheight']/2) + 4:
+            newy = -(opts['thumbheight']/2) + 4
+        elif newy > int(self.master.cget('height')) + (opts['thumbheight']/2) - 8:
+            newy = int(self.master.cget('height')) + (opts['thumbheight']/2) - 8
         self.place(x = newx, y = newy, anchor = CENTER)
         self.updatePosition()
 
@@ -1296,13 +1316,13 @@ class SmallCard(Label):
         cardInfo = self.place_info()
         x = int(cardInfo['x'])
         y = int(cardInfo['y'])
-        self.left = x - (THUMBWIDTH/2)
-        self.top = y - (THUMBHEIGHT/2)
-        self.right = self.left + THUMBWIDTH
-        self.bottom = self.top + THUMBHEIGHT
+        self.left = x - (opts['thumbwidth']/2)
+        self.top = y - (opts['thumbheight']/2)
+        self.right = self.left + opts['thumbwidth']
+        self.bottom = self.top + opts['thumbheight']
         
 
-        if self.topRotate and y < (GAME_PLAYHEIGHT/2):
+        if self.topRotate and y < (opts['game_playheight']/2):
             rotate = True
         else:
             rotate = False
@@ -1328,7 +1348,7 @@ class SmallCard(Label):
         if self.topRotate:
             if reverse:
                 for card in self.master.cardLabels:
-                    if card.top + THUMBHEIGHT/2 < (GAME_PLAYHEIGHT/2):
+                    if card.top + opts['thumbheight']/2 < (opts['game_playheight']/2):
                         cards.append(card)
                     
                 cards.sort(lambda x,y: cmp(x.top,y.top))
@@ -1344,7 +1364,7 @@ class SmallCard(Label):
             
             else:  
                 for card in self.master.cardLabels:
-                    if card.top + THUMBHEIGHT/2 > (GAME_PLAYHEIGHT/2):
+                    if card.top + opts['thumbheight']/2 > (opts['game_playheight']/2):
                         cards.append(card)
                     
                 cards.sort(lambda x,y: cmp(x.top,y.top))
@@ -1405,7 +1425,7 @@ class TopWindow(Tk):
             host = self.ipBox.get()
             port = int(self.portBox.get())
             startingTag = self.tagBox.get()
-
+            opts = allResOptions[self.resolution.get()]
 
         except:
             print("Exception in TopWindow.acceptIP.")
@@ -1430,7 +1450,7 @@ class TopWindow(Tk):
         self.createWaitingRoomWidgets()
 
         # Do setting-dependant initialization of card manager
-        if THUMBREMOVETEXT:
+        if opts['thumbremovetext']:
             cards.loadMask()
         cards.loadCardBack()
                         
@@ -1678,7 +1698,7 @@ class TopWindow(Tk):
             cardID = int(data[2:5])
             x = int(data[5:9])
             y = int(data[9:])
-            y = GAME_PLAYHEIGHT-y
+            y = opts['game_playheight']-y
             self.gameWindow.playBox.setCardPosition(cardID,x,y)
 
         elif data[0:2] == NEWPLAYCARD:
@@ -1718,6 +1738,8 @@ class TopWindow(Tk):
         self.ipLabel.grid(row=1, column=0)
         self.portLabel = Label(self, text="Server Port:")
         self.portLabel.grid(row=2,column=0)
+        self.resLabel = Label(self, text="Resolution:")
+        self.resLabel.grid(row = 3, column = 0)
 
         # Create entry boxes
         self.tagBox = Entry(self)
@@ -1730,11 +1752,18 @@ class TopWindow(Tk):
         self.portBox.insert(END,str(PORT))
         self.portBox.grid(row=2,column=1)
 
+        # Create drop-down menu for resolution
+        self.resolution = StringVar(self)
+        resOptions = ["1280x720","1280x1024"]
+        self.resolution.set(resOptions[0])
+        self.resMenu = OptionMenu(self,self.resolution, *resOptions)
+        self.resMenu.grid(row = 3, column = 1)
+
         # Create accept/cancel buttons
         self.ipOK = Button(self, text = "OK", command = self.acceptIP)
-        self.ipOK.grid(row=3, column=0)
+        self.ipOK.grid(row=4, column=0)
         self.ipCancel = Button(self, text = "Cancel", command = self.quit)
-        self.ipCancel.grid(row=3, column=1)
+        self.ipCancel.grid(row=4, column=1)
 
         # Useful key bindings
         self.bind("<Return>", self.keyHelperIpOK)
@@ -1749,9 +1778,9 @@ class TopWindow(Tk):
         self.packBox = Draft_Pack(self)
         self.pickedBox = Draft_PickedCards(self)
         self.cardBox = Draft_Card(self)
-        self.chatBox.resize(DRAFT_CHATWIDTH,DRAFT_CHATHEIGHT)
+        self.chatBox.resize(opts['draft_chatwidth'],opts['draft_chatheight'])
         self.chatBox.pack_forget()
-        self.playerBox.resize(DRAFT_PLAYERWIDTH, DRAFT_PLAYERHEIGHT)
+        self.playerBox.resize(opts['draft_playerwidth'], opts['draft_playerheight'])
         self.playerBox.pack_forget()
 
 
@@ -1765,18 +1794,19 @@ class TopWindow(Tk):
         
         
     def createWaitingRoomWidgets(self):
+        
         # Create menus
         self.menu = WaitingMenu(self)
         self.config(menu=self.menu)
 
         # Create text window
         self.chatBox = ChatBox(self)
-        self.chatBox.resize(WAIT_WIDTH,WAIT_HEIGHT)
+        self.chatBox.resize(opts['wait_width'],opts['wait_height'])
         self.chatBox.pack(side = LEFT)
 
         # Create player list box
         self.playerBox = PlayerBox(self)
-        self.playerBox.resize(WAIT_PLAYERWIDTH,WAIT_PLAYERHEIGHT)
+        self.playerBox.resize(opts['wait_playerwidth'],opts['wait_playerheight'])
         self.playerBox.pack(side = LEFT)
 
     def deck_challenge(self):

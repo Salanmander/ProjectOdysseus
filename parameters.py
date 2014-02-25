@@ -5,9 +5,7 @@ HOST = 'localhost'
 PORT = 21567
 BUFSIZ = 1024
 
-#Horizontal and vertical resolution
-HRES = 1280
-VRES = 720
+
 FRAMEWIDTH = 16 # pixel allowances for OS-applied frame
 FRAMEHEIGHT = 37
 
@@ -39,7 +37,6 @@ BACK = SPECIALSET + "000000"
 PTBOX = CARDDIR + SPECIALSET + "/powerBoxMask.png"
 
 # Parameters about card size
-THUMBSCALE = 0.5 # Linear scaling factor to use for small size cards
 TITLEFRACTION = 0.12 # This is the fraction of the card that should be
                     # displayed from the top for the title bar to be visible
 TYPEFRACTION = 0.638 # Fraction to display the type line and above
@@ -54,67 +51,83 @@ TEXTLINEFRACTION = 1.2 # height of line of text compared to a capital letter
 # This is how strong (in average intensity drop) an edge needs to be
 CREATURE_EDGE_THRESHOLD = 40 
 
-THUMBREMOVETEXT = False # cut rules text box off thumbnails.
-THUMBRETYPETEXT = True # re-types the text, leaving out any that doesn't fit
+ASPECTRATIO = 680.0/480.0 # aspect ratio based on mtgimage resolution
 
-
-CARDWIDTH = 220 # 265 is full width of original card images
-                # about 180 is reasonably comfortable
-                # about 130 is barely readable
-CARDHEIGHT = int(CARDWIDTH * 680/480) # aspect ratio based on mtgimage resolution
-
-# Derived parameters
-CARDTITLEHEIGHT = int(CARDHEIGHT * TITLEFRACTION)
-THUMBWIDTH = int(THUMBSCALE * CARDWIDTH)
-if THUMBREMOVETEXT: #If we're removing the text, still have bottom border
-    THUMBHEIGHT = int(THUMBSCALE * CARDHEIGHT * \
-                      (TYPEFRACTION+VBLACKFRACTION))
-else:
-    THUMBHEIGHT = int(THUMBSCALE * CARDHEIGHT)
-THUMBTITLEHEIGHT = int(THUMBSCALE * CARDHEIGHT * TITLEFRACTION)
-THUMBTEXTHEIGHT = int(THUMBSCALE * CARDHEIGHT * VTEXTFRACTION)
-THUMBTEXTWIDTH = int(THUMBSCALE * CARDWIDTH * HTEXTFRACTION)
+GAME_PLAYHEIGHT_BASE = 1000  # Game window dimensions if the cards are full 
+GAME_PLAYWIDTH_BASE = 1500  # scale.
 
 # Other card appearance parameters
 TEXTBOXCOLOR = (245,240,235)
 
-# Parameters for waiting window
-WAIT_WIDTH = 200 
-WAIT_HEIGHT = 500
-WAIT_PLAYERWIDTH = 140
-WAIT_PLAYERHEIGHT = 140
 
-# Parameters for draft window
-DRAFT_PACK_CARDSPERROW = 8 # Number of thumbnails per row in picking window
-DRAFT_PLAYERHEIGHT = 140
-DRAFT_PLAYERWIDTH = 140
-DRAFT_PICKEDHEIGHT = CARDHEIGHT #Picked window fills in next to big card
-DRAFT_PICKEDWIDTH = HRES - FRAMEWIDTH - CARDWIDTH #Fills up rest of window
-DRAFT_CHATHEIGHT = DRAFT_PLAYERHEIGHT
+allResOptions = dict()
+
+# --------------------------------------------------------------------------
+# parameters for 1280x720 resolution
+# --------------------------------------------------------------------------
+
+opts = dict()
+allResOptions['1280x720'] = opts
+
+opts['hres'] = 1280 # not an actual guarantee of window size, but used
+opts['vres'] = 720  #    to derive some things
+opts['thumbscale']=0.5
+opts['cardwidth']=180
+opts['cardheight']=int(opts['cardwidth']* ASPECTRATIO)
+opts['thumbremovetext']=False
+opts['thumbretypetext']=True
+opts['thumbwidth'] = int(opts['thumbscale']*opts['cardwidth'])
+if opts['thumbremovetext']: #If we're removing the text, still have bottom border
+    opts['thumbheight'] = int(opts['thumbscale'] * opts['cardheight'] * \
+                      (TYPEFRACTION+VBLACKFRACTION))
+else:
+    opts['thumbheight'] = int(opts['thumbscale'] * opts['cardheight'])
+opts['thumbtitleheight'] = int(opts['thumbscale'] * opts['cardheight'] * TITLEFRACTION)
+opts['thumbtextheight'] = int(opts['thumbscale'] * opts['cardheight'] * VTEXTFRACTION)
+opts['thumbtextwidth'] = int(opts['thumbscale'] * opts['cardwidth'] * HTEXTFRACTION)
+
+# parameters only used in waiting window
+opts['wait_width'] = 200 
+opts['wait_height'] = 500
+opts['wait_playerwidth'] = 140
+opts['wait_playerheight'] = 140
+
+# parameters only used in drafting
+opts['draft_pack_cardsperrow'] = 8 # Number of thumbnails per row in picking window
+opts['draft_playerheight'] = 140
+opts['draft_playerwidth'] = 140
+opts['draft_pickedheight'] = opts['cardheight'] #Picked window fills in next to big card
+opts['draft_pickedwidth'] = opts['hres'] - FRAMEWIDTH - opts['cardwidth'] #Fills up rest of window
+opts['draft_chatheight'] = opts['draft_playerheight']
 # Make chat window fit neatly under picked window
-DRAFT_CHATWIDTH = DRAFT_PICKEDWIDTH - DRAFT_PLAYERWIDTH
-# Unfortunately I haven't yet figured a way to set the size of the
-# booster pack display conveniently
+opts['draft_chatwidth'] = opts['draft_pickedwidth'] - opts['draft_playerwidth']
+# Booster pack display could be configured by pixels by making it similar
+# to the play area, or maybe the chat box (turn off geometry propogation)
 
-# The deck-building window just fills the space available in the grid
-
-# Parameters for game window
-GAME_MESSAGEWIDTH = 20 #Characters
-GAME_MESSAGENUM = 15
-GAME_MESSAGES = ("At the end of your turn...","Untap/upkeep/draw.",\
+# parameters only used in game window
+opts['game_grids']={'chatr':3,'chatc':2,'chatcs':2,
+                 'playr':0,'playc':3,'playrs':3,
+                 'handr':2,'handc':0,'handrs':2,
+                 'dispr':0,'dispc':2,'disprs':3,
+                 'cardr':0,'cardc':0,'cardcs':2,
+                 'toolr':1,'toolc':0,'toolcs':2,
+                 'messr':2,'messc':1,'messrs':2}
+opts['game_messagewidth']=20
+opts['game_messagenum']=10
+opts['game_messages']=("At the end of your turn...","Untap/upkeep/draw.",\
                  "Main phase.","Combat phase.","Hold on...","Your turn.",\
                  "Declare no blockers.")
-GAME_PLAYHEIGHT_BASE = 1400  # Game window dimensions if the cards are full 
-GAME_PLAYWIDTH_BASE = 1900   # scale.
-GAME_PLAYHEIGHT = GAME_PLAYHEIGHT_BASE*THUMBSCALE
-GAME_PLAYWIDTH = GAME_PLAYWIDTH_BASE*THUMBSCALE
-GAME_HANDWIDTH = THUMBWIDTH + 4
-GAME_HANDHEIGHT = 400
-GAME_CHATWIDTH = GAME_PLAYWIDTH 
-GAME_CHATHEIGHT = 150
-GAME_INFOBARWIDTH = 52
-GAME_LABELSPACE = 30 # Space between the tops of indicators for life etc.
-GAME_LABELOFFSET = 12 # Shift the labels to center them WRT the life entry box
-GAME_DECKROWS = 15 # Number of cards to display in a column when showing an
+opts['game_playwidth']=GAME_PLAYWIDTH_BASE*opts['thumbscale']
+opts['game_playheight']=GAME_PLAYHEIGHT_BASE*opts['thumbscale']
+opts['game_handwidth']=opts['thumbwidth']+4
+opts['game_handheight']=200
+opts['game_chatwidth'] = opts['game_playwidth']
+opts['game_chatheight'] = 100
+opts['game_infobarwidth'] = 52
+opts['game_labelspace'] = 30 # Space between the tops of indicators for life etc.
+opts['game_labeloffset'] = 12 # Shift the labels to center them WRT the life entry box
+opts['game_deckrows'] = 15 # Number of cards to display in a column when showing an
                    # entire deck.
+
+
 
