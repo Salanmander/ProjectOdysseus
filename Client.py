@@ -905,25 +905,25 @@ class Game_Tools(Frame):
                 self.buttons.append(button)
 
         self.buttons[0].config(text = "Draw", command = self.draw)
-        self.buttons[1].config(text = "Move to\nTop\nof Deck", \
+        self.buttons[1].config(text = "-> Deck\nTop", \
                                command = self.deckTop)
-        self.buttons[2].config(text = "Move to\nBottom\nof Deck",\
-                               command = self.deckBottom)
-        self.buttons[3].config(text = "Move to\nHand",\
-                               command = self.moveToHand)
-        self.buttons[4].config(text = "Flip (Play\nFace Down)",\
-                               command = self.flip)
-        self.buttons[5].config(text = "Peek at\nFlipped",\
-                               command = self.peek)
-        self.buttons[6].config(text = "Create\nToken",\
+        self.buttons[2].config(text = "Peek: Deck",\
+                               command = self.seeDeck)
+        self.buttons[3].config(text = "Create\nToken",\
                                command = self.tokenMake)
+        self.buttons[4].config(text = "->\nHand",\
+                               command = self.moveToHand)
+        self.buttons[5].config(text = "-> Deck\nBottom",\
+                               command = self.deckBottom)
+        self.buttons[6].config(text = "Peek: Deck,\nOpponent's",\
+                                command = self.seeOpponentDeck)
         self.buttons[7].config(text = "Destroy\nToken",\
                                command = self.tokenDestroy)
         self.buttons[8].config(text = "Shuffle", command = self.shuffle)
-        self.buttons[9].config(text = "Look at\nDeck",\
-                               command = self.seeDeck)
-        self.buttons[10].config(text = "Look at\nOpponent's Deck",\
-                                command = self.seeOpponentDeck)
+        self.buttons[9].config(text = "Peek at\nFlipped",\
+                               command = self.peek)
+        self.buttons[10].config(text = "Flip (Play\nFace Down)",\
+                               command = self.flip)
         
 
     def draw(self):
