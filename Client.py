@@ -19,7 +19,7 @@ from parameters import *
 
 class CardImageManager:
     def __init__(self):
-        # Image varaibles
+        # Image variables
         self.images = dict()
         self.thumbnails = dict()
         self.thumbTapped = dict()
@@ -544,6 +544,45 @@ class Draft_PickedCards(Frame):
         self.removeCard(cardLabel)
 
         self.master.deck_moveToDeck(cardLabel.card)
+class Game_ScryMenu(Toplevel):
+  def __init__(self, master):
+    Toplevel.__init__(self, master)
+    print("creating scry menu")
+    # does self refer to the windowy thing here???
+    self.wm_title = "Scry or View Deck"
+    # For now, only do own deck. deal with oppo's later.
+
+    #self.whoseDeck = Checkbutton(t, text="Look at opponent's deck instead") #variable=var
+    #self.whoseDeck.grid(row = 1, column = 0)
+    self.wholeDeck = Button(self, text = "Look at my Deck", command = lambda: self.scry(0)) # lambda so it doesn't fire on load
+    self.wholeDeck.grid(row = 2, column = 1)
+    self.scryButtons = []
+    for i in range(0, 4):
+      j = i+1
+      self.scryButtons.append(Button(self, text = "Scry %d" %(i+1), command = lambda j=j: self.scry(j) )) #hack alert - need to capture j's value
+      self.scryButtons[i].grid(row = i+2, column = 0)
+
+  def scry(self, numCards):
+    # 0 = viewing own deck and kill the scry window
+    if numCards == 0:
+      root.send(VIEWDECK + "0")
+      self.destroy()
+    else:
+      # get the # of cards from the server
+      # set them up all pretty like
+      # and let ppl click to ... yes.
+      # set them up all visible.
+      # below each, a dropdown with "top of libray, 2nd from top, 3rd, etc"
+      # and "bottom, 2nd from bottom, etc"
+      # and button for "do it"
+      print("Scried %d cards. NYI." %numCards)
+      # Clean out the contents 
+      for child in self.winfo_children():
+            child.destroy()
+      # Talk to the server, get some cards
+      l = Label(self, text="Would scry %d but it's NYI!" %numCards)
+      l.grid(row = 0, column = 0) 
+
 
 class Game_DeckWindow(Toplevel):
     def __init__(self,master,deck,playchar):
@@ -924,7 +963,8 @@ class Game_Tools(Frame):
                                command = self.seeDeck)
         self.buttons[10].config(text = "Look at\nOpponent's Deck",\
                                 command = self.seeOpponentDeck)
-        
+        self.buttons[11].config(text = "Scry",\
+                               command = self.beginScry)
 
     def draw(self):
         root.send(DRAW)
@@ -964,6 +1004,11 @@ class Game_Tools(Frame):
 
     def seeDeck(self):
         root.send(VIEWDECK + "0")
+    
+    def beginScry(self):
+        # Open the scry window
+        #root.send(VIEWDECK + "0")
+        self.scryMenu = Game_ScryMenu(self)
 
     def seeOpponentDeck(self):
         root.send(VIEWDECK + "1")
