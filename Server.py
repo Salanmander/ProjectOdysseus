@@ -20,7 +20,7 @@ PORT = 21567
 BUFSIZ = 1024
 ADDR = (HOST, PORT)
 #setList = ['SHM','SHM','SHM']
-setList = ['SHM']
+setList = ['THS']
 
 
 class CardDataManager():

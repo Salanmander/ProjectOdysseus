@@ -74,8 +74,8 @@ class CardImageManager:
         self.powerBoxMask = Image.open(PTBOX)
         # Convert mask to greyscale (mode "L")
         self.powerBoxMask = self.powerBoxMask.convert("L")
-        w = opts['cardwidth']
-        h = opts['cardheight']
+        w = CARDWIDTH
+        h = CARDHEIGHT
         # Resize to thumbnail size, won't use for full cards
         self.powerBoxMask = self.powerBoxMask.resize((int(w*opts['thumbscale']),\
                                                       int(h*opts['thumbscale'])),Image.ANTIALIAS)
@@ -121,8 +121,8 @@ class CardImageManager:
         return
 
     def loadHelper(self,multiverseID,temp_image):
-        temp_image = temp_image.resize((opts['cardwidth'],\
-                                        opts['cardheight']),Image.ANTIALIAS)
+        temp_image = temp_image.resize((opts['bigcardwidth'],\
+                                        opts['bigcardheight']),Image.ANTIALIAS)
         
         self.images[multiverseID] = ImageTk.PhotoImage(temp_image)
 
@@ -151,8 +151,8 @@ class CardImageManager:
 
     def makeThumbnail(self,fullImage,rewriteText,multiverseID = None):
         w,h = fullImage.size
-        newImage = fullImage.resize((int(w*opts['thumbscale']),\
-                                     int(h*opts['thumbscale'])),Image.ANTIALIAS)
+        newImage = fullImage.resize((opts['thumbwidth'],\
+                                     opts['thumbheight']),Image.ANTIALIAS)
         if(opts['thumbremovetext']):
             # get the power/toughness box
             powerImage = newImage.crop(self.powerBoxMask.getbbox())
@@ -296,7 +296,7 @@ class Deck_DeckBox(Frame):
     def __init__(self,master):
         Frame.__init__(self,master)
         self.config(height = opts['draft_pickedheight'], \
-                    width = opts['draft_pickedwidth'] + opts['cardwidth'])
+                    width = opts['draft_pickedwidth'] + opts['bigcardwidth'])
         self.config(bd = 2, relief = RIDGE)
         self.config(bg = 'White')
         self.cardLabels = []
@@ -623,7 +623,8 @@ class Game_Display(Frame):
     def __init__(self,master):
         Frame.__init__(self,master)
 
-        self.config(width = opts['game_infobarwidth'], height = opts['game_playheight'])
+        self.config(width = opts['game_infobarwidth'],
+                    height = opts['game_infobarheight'])
         self.opponentLife = 20
         self.opponentDeck = 0
         self.opponentHand = 0
@@ -1027,32 +1028,22 @@ class Game_Window(Toplevel):
         self.tokenDestroy = False
 
         # create widgets
-        print 'a'
         self.playBox = Game_PlayArea(self)
-        print 'b'
         self.handBox = Game_Hand(self)
-        print 'c'
         
         self.chatBox = ChatBox(self, sendType = GAME)
-        print 'd'
-        print opts['game_chatwidth']
         self.chatBox.resize(opts['game_chatwidth'],opts['game_chatheight'])
         
         self.cardBox = Draft_Card(self)
-        print 'e'
         self.displayBar = Game_Display(self)
-        print 'f'
         self.toolBox = Game_Tools(self)
-        print 'g'
         self.messagesBox = Game_Messages(self)
-        print 'a'
 
         g = opts['game_grids']
-        print g
         self.playBox.grid(row = g['playr'], column= g['playc'],
                           rowspan = g['playrs'])
         self.handBox.grid(row = g['handr'], column = g['handc'],
-                          rowspan = g['handrs'])
+                          rowspan = g['handrs'], columnspan = g['handcs'])
         self.displayBar.grid(row = g['dispr'], column = g['dispc'],
                              rowspan = g['disprs'])
         self.chatBox.grid(row = g['chatr'], column = g['chatc'],
@@ -1062,7 +1053,7 @@ class Game_Window(Toplevel):
         self.toolBox.grid(row = g['toolr'], column = g['toolc'],
                           columnspan = g['toolcs'])
         self.messagesBox.grid(row = g['messr'], column = g['messc'],
-                              rowspan = g['messrs'])
+                              rowspan = g['messrs'], columnspan = g['messcs'])
 
                 
 
@@ -1089,7 +1080,6 @@ class Game_Window(Toplevel):
         self.displayBar.hand_update()
 
     def updateLife(self):
-        print(self.opponent.life)
         self.displayBar.opponentLife = self.opponent.life
         self.displayBar.life_updateOpponent()
         
@@ -1287,16 +1277,17 @@ class SmallCard(Label):
 
     def updateImage(self):
         if self.flipped:
+            multiverseID = BACK[3:]
             if self.rotated:
                 if self.tapped:
-                    self.configure(image = cards.thumb180Tap[BACK])
+                    self.configure(image = cards.thumb180Tap[multiverseID])
                 else:
-                    self.configure(image = cards.thumb180[BACK])
+                    self.configure(image = cards.thumb180[multiverseID])
             else:
                 if self.tapped:
-                    self.configure(image = cards.thumbTapped[BACK])
+                    self.configure(image = cards.thumbTapped[multiverseID])
                 else:
-                    self.configure(image = cards.thumbnails[BACK])
+                    self.configure(image = cards.thumbnails[multiverseID])
         else:
             if self.rotated:
                 if self.tapped:
@@ -1337,8 +1328,9 @@ class SmallCard(Label):
 
 
         if self.sendPosition and sendNote:
-            root.send(CARDPOSITION + str(self.ID).zfill(3) + \
-                      str(x).zfill(4) + str(y).zfill(4))
+            root.send(CARDPOSITION + str(self.ID).zfill(3) + 
+                      str(int(x/opts['thumbscale'])).zfill(4) +
+                      str(int(y/opts['thumbscale'])).zfill(4))
 
 
         
@@ -1425,6 +1417,7 @@ class TopWindow(Tk):
             host = self.ipBox.get()
             port = int(self.portBox.get())
             startingTag = self.tagBox.get()
+            global opts
             opts = allResOptions[self.resolution.get()]
 
         except:
@@ -1441,6 +1434,7 @@ class TopWindow(Tk):
 
         self.unbind("<Return>")
         self.unbind("<Escape>")
+        
 
         # Clean up previous screen
         for child in self.winfo_children():
@@ -1698,7 +1692,9 @@ class TopWindow(Tk):
             cardID = int(data[2:5])
             x = int(data[5:9])
             y = int(data[9:])
-            y = opts['game_playheight']-y
+            y = GAME_PLAYHEIGHT_BASE-y
+            x = int(x*opts['thumbscale'])
+            y = int(y*opts['thumbscale'])
             self.gameWindow.playBox.setCardPosition(cardID,x,y)
 
         elif data[0:2] == NEWPLAYCARD:
@@ -1810,21 +1806,21 @@ class TopWindow(Tk):
         self.playerBox.pack(side = LEFT)
 
     def deck_challenge(self):
-        print(self.playerBox.curselection())
         # We have to reference the player by tag...we could get around this
         # by keeping an array of IDs in the same order as the listbox
         # if desired in the future.
-        slappedIndex = self.playerBox.curselection()[0]
+        try:
+            slappedIndex = self.playerBox.curselection()[0]
+        except IndexError:
+            self.chatBox.recvMessage("You must select a player to challenge.")
+            return
         slappedTag = self.playerBox.get(slappedIndex)
-        print(slappedTag)
 
         # Find the player with that tag.
         slappedPlayer = None
         for player in self.players.values():
             if player.tag == slappedTag:
                 slappedPlayer = player
-
-        print(slappedPlayer.ID)
         
         self.chatBox.recvMessage("You have challenged " \
                                  + slappedPlayer.tag\
@@ -1992,9 +1988,12 @@ class WaitingMenu(Menu):
 
 if not os.path.isdir(CARDDIR):
     os.makedirs(CARDDIR)
+
 root = TopWindow()
 
 # This object holds and manipulates all the card images
 cards = CardImageManager()
+
+opts = allResOptions['1280x720'] # default in case something doesn't get selected
 
 root.mainloop()

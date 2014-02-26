@@ -51,10 +51,11 @@ TEXTLINEFRACTION = 1.2 # height of line of text compared to a capital letter
 # This is how strong (in average intensity drop) an edge needs to be
 CREATURE_EDGE_THRESHOLD = 40 
 
-ASPECTRATIO = 680.0/480.0 # aspect ratio based on mtgimage resolution
+CARDHEIGHT = 680 # resolution of original images
+CARDWIDTH = 480
 
-GAME_PLAYHEIGHT_BASE = 1000  # Game window dimensions if the cards are full 
-GAME_PLAYWIDTH_BASE = 1500  # scale.
+GAME_PLAYHEIGHT_BASE = 3000  # Game window dimensions if the cards are full 
+GAME_PLAYWIDTH_BASE = 3000  # scale.
 
 # Other card appearance parameters
 TEXTBOXCOLOR = (245,240,235)
@@ -71,20 +72,21 @@ allResOptions['1280x720'] = opts
 
 opts['hres'] = 1280 # not an actual guarantee of window size, but used
 opts['vres'] = 720  #    to derive some things
-opts['thumbscale']=0.5
-opts['cardwidth']=180
-opts['cardheight']=int(opts['cardwidth']* ASPECTRATIO)
+opts['thumbscale']=0.24
+opts['bigscale'] = 0.5
+opts['bigcardwidth']=int(opts['bigscale']*CARDWIDTH)
+opts['bigcardheight']=int(opts['bigscale']*CARDHEIGHT)
 opts['thumbremovetext']=False
 opts['thumbretypetext']=True
-opts['thumbwidth'] = int(opts['thumbscale']*opts['cardwidth'])
+opts['thumbwidth'] = int(opts['thumbscale']*CARDWIDTH)
 if opts['thumbremovetext']: #If we're removing the text, still have bottom border
-    opts['thumbheight'] = int(opts['thumbscale'] * opts['cardheight'] * \
+    opts['thumbheight'] = int(opts['thumbscale'] * CARDHEIGHT * \
                       (TYPEFRACTION+VBLACKFRACTION))
 else:
-    opts['thumbheight'] = int(opts['thumbscale'] * opts['cardheight'])
-opts['thumbtitleheight'] = int(opts['thumbscale'] * opts['cardheight'] * TITLEFRACTION)
-opts['thumbtextheight'] = int(opts['thumbscale'] * opts['cardheight'] * VTEXTFRACTION)
-opts['thumbtextwidth'] = int(opts['thumbscale'] * opts['cardwidth'] * HTEXTFRACTION)
+    opts['thumbheight'] = int(opts['thumbscale'] * CARDHEIGHT)
+opts['thumbtitleheight'] = int(opts['thumbscale'] * CARDHEIGHT * TITLEFRACTION)
+opts['thumbtextheight'] = int(opts['thumbscale'] * CARDHEIGHT * VTEXTFRACTION)
+opts['thumbtextwidth'] = int(opts['thumbscale'] * CARDWIDTH * HTEXTFRACTION)
 
 # parameters only used in waiting window
 opts['wait_width'] = 200 
@@ -96,8 +98,78 @@ opts['wait_playerheight'] = 140
 opts['draft_pack_cardsperrow'] = 8 # Number of thumbnails per row in picking window
 opts['draft_playerheight'] = 140
 opts['draft_playerwidth'] = 140
-opts['draft_pickedheight'] = opts['cardheight'] #Picked window fills in next to big card
-opts['draft_pickedwidth'] = opts['hres'] - FRAMEWIDTH - opts['cardwidth'] #Fills up rest of window
+opts['draft_pickedheight'] = opts['bigcardheight'] #Picked window fills in next to big card
+opts['draft_pickedwidth'] = opts['hres'] - FRAMEWIDTH - opts['bigcardwidth'] #Fills up rest of window
+opts['draft_chatheight'] = opts['draft_playerheight']
+# Make chat window fit neatly under picked window
+opts['draft_chatwidth'] = opts['draft_pickedwidth'] - opts['draft_playerwidth']
+# Booster pack display could be configured by pixels by making it similar
+# to the play area, or maybe the chat box (turn off geometry propogation)
+
+# parameters only used in game window
+opts['game_grids']={'chatr':3,'chatc':0,'chatcs':4,
+                 'playr':0,'playc':4,'playrs':4,
+                 'handr':0,'handc':2,'handrs':1,'handcs':2,
+                 'dispr':2,'dispc':3,'disprs':1,
+                 'cardr':0,'cardc':0,'cardcs':2,
+                 'toolr':2,'toolc':0,'toolcs':3,
+                 'messr':1,'messc':0,'messrs':1,'messcs':4}
+opts['game_messagewidth']=20
+opts['game_messagenum']=1
+opts['game_messages']=("At the end of your turn...","Untap/upkeep/draw.",\
+                 "Main phase.","Combat phase.","Hold on...","Your turn.",\
+                 "Declare no blockers.")
+opts['game_playwidth']=GAME_PLAYWIDTH_BASE*opts['thumbscale']
+opts['game_playheight']=GAME_PLAYHEIGHT_BASE*opts['thumbscale']
+opts['game_handwidth']=opts['thumbwidth']+4
+opts['game_handheight']=200
+opts['game_chatwidth'] = opts['hres']-FRAMEWIDTH-opts['game_playwidth']
+opts['game_chatheight'] = 150
+opts['game_infobarwidth'] = 52
+opts['game_infobarheight'] = 150
+opts['game_labelspace'] = 30 # Space between the tops of indicators for life etc.
+opts['game_labeloffset'] = 12 # Shift the labels to center them WRT the life entry box
+opts['game_deckrows'] = 15 # Number of cards to display in a column when showing an
+                   # entire deck.
+
+
+# --------------------------------------------------------------------------
+# parameters for 1280x1024 resolution
+# --------------------------------------------------------------------------
+
+opts = dict()
+allResOptions['1280x1024'] = opts
+
+opts['hres'] = 1280 # not an actual guarantee of window size, but used
+opts['vres'] = 1024 #    to derive some things
+opts['thumbscale']=0.24
+opts['bigscale'] = 0.4
+opts['bigcardwidth']=int(opts['bigscale']*CARDWIDTH)
+opts['bigcardheight']=int(opts['bigscale']*CARDHEIGHT)
+opts['thumbremovetext']=False
+opts['thumbretypetext']=True
+opts['thumbwidth'] = int(opts['thumbscale']*CARDWIDTH)
+if opts['thumbremovetext']: #If we're removing the text, still have bottom border
+    opts['thumbheight'] = int(opts['thumbscale'] * CARDHEIGHT * \
+                      (TYPEFRACTION+VBLACKFRACTION))
+else:
+    opts['thumbheight'] = int(opts['thumbscale'] * CARDHEIGHT)
+opts['thumbtitleheight'] = int(opts['thumbscale'] * CARDHEIGHT * TITLEFRACTION)
+opts['thumbtextheight'] = int(opts['thumbscale'] * CARDHEIGHT * VTEXTFRACTION)
+opts['thumbtextwidth'] = int(opts['thumbscale'] * CARDWIDTH * HTEXTFRACTION)
+
+# parameters only used in waiting window
+opts['wait_width'] = 200 
+opts['wait_height'] = 500
+opts['wait_playerwidth'] = 140
+opts['wait_playerheight'] = 140
+
+# parameters only used in drafting
+opts['draft_pack_cardsperrow'] = 8 # Number of thumbnails per row in picking window
+opts['draft_playerheight'] = 140
+opts['draft_playerwidth'] = 140
+opts['draft_pickedheight'] = opts['bigcardheight'] #Picked window fills in next to big card
+opts['draft_pickedwidth'] = opts['hres'] - FRAMEWIDTH - opts['bigcardwidth'] #Fills up rest of window
 opts['draft_chatheight'] = opts['draft_playerheight']
 # Make chat window fit neatly under picked window
 opts['draft_chatwidth'] = opts['draft_pickedwidth'] - opts['draft_playerwidth']
@@ -107,13 +179,13 @@ opts['draft_chatwidth'] = opts['draft_pickedwidth'] - opts['draft_playerwidth']
 # parameters only used in game window
 opts['game_grids']={'chatr':3,'chatc':2,'chatcs':2,
                  'playr':0,'playc':3,'playrs':3,
-                 'handr':2,'handc':0,'handrs':2,
+                 'handr':2,'handc':0,'handrs':2,'handcs':1,
                  'dispr':0,'dispc':2,'disprs':3,
                  'cardr':0,'cardc':0,'cardcs':2,
                  'toolr':1,'toolc':0,'toolcs':2,
-                 'messr':2,'messc':1,'messrs':2}
+                 'messr':2,'messc':1,'messrs':2,'messcs':1}
 opts['game_messagewidth']=20
-opts['game_messagenum']=10
+opts['game_messagenum']=1
 opts['game_messages']=("At the end of your turn...","Untap/upkeep/draw.",\
                  "Main phase.","Combat phase.","Hold on...","Your turn.",\
                  "Declare no blockers.")
@@ -124,6 +196,7 @@ opts['game_handheight']=200
 opts['game_chatwidth'] = opts['game_playwidth']
 opts['game_chatheight'] = 100
 opts['game_infobarwidth'] = 52
+opts['game_infobarheight'] = 150
 opts['game_labelspace'] = 30 # Space between the tops of indicators for life etc.
 opts['game_labeloffset'] = 12 # Shift the labels to center them WRT the life entry box
 opts['game_deckrows'] = 15 # Number of cards to display in a column when showing an
