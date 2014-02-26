@@ -1,0 +1,22 @@
+Misc notes on Server.py:
+
+*On first run, it may hang for a while as it downloads 10mb of json. 
+Don't panic and don't kill it.
+
+If you did kill it, it'll start erroring on future runs due to the incomplete
+json file. This files is Cards/AllSets.json . Delete it and let it redownload.
+
+
+*To run a server that other computers on your local network can access:
+  Run Server.py, changing "localhost" to your internal IP address.
+
+To find your internal IP address (WINDOWS):
+  Open a commnand prompt: Windows7: Start->type in the search box: cmd
+                          Other Windows: Start->run->type: cmd
+
+  At the command prompt, type:  ipconfig
+  
+  Note "IPv4 Address" under "Ethernet adapter Local Area Connection:"
+  (Probably starts with 192.168...)
+  This is the value to put in the box for both the server and other clients
+  who wish to connect.

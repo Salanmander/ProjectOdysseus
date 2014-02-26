@@ -55,7 +55,7 @@ CARDHEIGHT = 680 # resolution of original images
 CARDWIDTH = 480
 
 GAME_PLAYHEIGHT_BASE = 3000  # Game window dimensions if the cards are full 
-GAME_PLAYWIDTH_BASE = 3000  # scale.
+GAME_PLAYWIDTH_BASE = 3700  # scale.
 
 # Other card appearance parameters
 TEXTBOXCOLOR = (245,240,235)
@@ -73,7 +73,7 @@ allResOptions['1280x720'] = opts
 opts['hres'] = 1280 # not an actual guarantee of window size, but used
 opts['vres'] = 720  #    to derive some things
 opts['thumbscale']=0.24
-opts['bigscale'] = 0.5
+opts['bigscale'] = 0.4
 opts['bigcardwidth']=int(opts['bigscale']*CARDWIDTH)
 opts['bigcardheight']=int(opts['bigscale']*CARDHEIGHT)
 opts['thumbremovetext']=False
@@ -122,7 +122,7 @@ opts['game_messages']=("At the end of your turn...","Untap/upkeep/draw.",\
 opts['game_playwidth']=GAME_PLAYWIDTH_BASE*opts['thumbscale']
 opts['game_playheight']=GAME_PLAYHEIGHT_BASE*opts['thumbscale']
 opts['game_handwidth']=opts['thumbwidth']+4
-opts['game_handheight']=200
+opts['game_handheight']=opts['bigcardheight']
 opts['game_chatwidth'] = opts['hres']-FRAMEWIDTH-opts['game_playwidth']
 opts['game_chatheight'] = 150
 opts['game_infobarwidth'] = 52

@@ -549,13 +549,19 @@ class TopWindow(Tk):
             client.deck.shuffle()
 
         elif data[0:2] == VIEWDECK:
+            whoseDeck = ""
+            warning = "Your opponent is looking at "
             if data[2] == "0":
+                whoseDeck = "their own deck!"
                 for card in client.deck.cards:
                     data = data + card['set'] + card['multiverseid']
             else:
+                whoseDeck = "your deck!"
                 for card in client.opponent.deck.cards:
                     data = data + card['set'] + card['multiverseid']
             self.sendRobust(client,data)
+            # Warn the opponent of the deck inspection
+            self.sendRobust(client.opponent, MESSAGE + GAME + warning + whoseDeck)
 
         elif data[0:2] == DECKREMOVE:
             if data[2] ==  "0":

@@ -1,0 +1,19 @@
+These instructions are for running from source; for running from an .exe see
+[NYI].
+
+Tested on platform(s): 64bit Windows7 with 32bit Python 2.7.6.
+
+Installation
+Download & install Python 2.7.6:
+http://python.org/download/releases/2.7.6/
+
+Note whether you have the 32bit version (x86) or 64bit (x86-64).
+
+Download and install Pillow:
+http://www.lfd.uci.edu/~gohlke/pythonlibs/#pillow
+
+If you have 32bit Python, choose "Pillow-2.3.0.win32-py2.7.exe"
+If you have 64bit Python, choose "Pillow-2.3.0.win-amd64-py2.7.exe"
+
+At this point you can run: python Client.py and/or Server.py.
+On first run, they will download 10mb of json which may take a while.
