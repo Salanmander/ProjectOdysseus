@@ -64,7 +64,7 @@ MARK = '='
 # It is added by TopWindow.sendRobust.
 ENDPACKET = '~`mq|'
 
-# Indeces used for basic lands
+# Indices used for basic lands
 PLAINS = 0
 ISLAND = 1
 SWAMP = 2
