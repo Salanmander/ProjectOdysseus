@@ -41,7 +41,13 @@ DECKTOP = 'cb' #Tells the server to put the specified card on top of the deck
 DECKBOTTOM = 'cc'
 SHUFFLE = 'cd' #Tells the server to shuffle the player's deck
 VIEWDECK = 'ce' # First char is player: 0 for self, 1 for opponent
+                # Second char is "for scry": 0 for no, 1 for yes
+                # Remaining chars WHEN SENDING CLIENT->SERVER are
+                # the number of cards to view from top:
+                # 0 for all, N for "min(N, remaining cards in deck)
                 # Server adds the appropriate deck list and returns it
+                # Remaining chars WHEN SENDING SERVER->CLIENT are
+                # the card infos, 9 chars per card
 DECKREMOVE = 'cf' # Tells server to remove one copy of given card from
                     # (0/1) self or opponent's deck
                     # NOT GUARANTEED to take card from desired position

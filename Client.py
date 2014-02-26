@@ -542,46 +542,34 @@ class Draft_PickedCards(Frame):
     def moveToDeck(self,event):
         cardLabel = event.widget
         self.removeCard(cardLabel)
-
         self.master.deck_moveToDeck(cardLabel.card)
-class Game_ScryMenu(Toplevel):
+
+class Game_ScryWindow(Toplevel):
   def __init__(self, master):
     Toplevel.__init__(self, master)
-    print("creating scry menu")
-    # does self refer to the windowy thing here???
-    self.wm_title = "Scry or View Deck"
+    self.wm_title = "Scry"
     # For now, only do own deck. deal with oppo's later.
-
-    #self.whoseDeck = Checkbutton(t, text="Look at opponent's deck instead") #variable=var
-    #self.whoseDeck.grid(row = 1, column = 0)
-    self.wholeDeck = Button(self, text = "Look at my Deck", command = lambda: self.scry(0)) # lambda so it doesn't fire on load
-    self.wholeDeck.grid(row = 2, column = 1)
     self.scryButtons = []
     for i in range(0, 4):
       j = i+1
-      self.scryButtons.append(Button(self, text = "Scry %d" %(i+1), command = lambda j=j: self.scry(j) )) #hack alert - need to capture j's value
+      self.scryButtons.append(Button(self, text = "Scry %d" %(i+2), command = lambda j=j: self.beginScry(j) )) #hack alert - need to capture j's value
       self.scryButtons[i].grid(row = i+2, column = 0)
 
-  def scry(self, numCards):
-    # 0 = viewing own deck and kill the scry window
-    if numCards == 0:
-      root.send(VIEWDECK + "0")
-      self.destroy()
-    else:
-      # get the # of cards from the server
-      # set them up all pretty like
-      # and let ppl click to ... yes.
-      # set them up all visible.
-      # below each, a dropdown with "top of libray, 2nd from top, 3rd, etc"
-      # and "bottom, 2nd from bottom, etc"
-      # and button for "do it"
-      print("Scried %d cards. NYI." %numCards)
-      # Clean out the contents 
-      for child in self.winfo_children():
-            child.destroy()
-      # Talk to the server, get some cards
-      l = Label(self, text="Would scry %d but it's NYI!" %numCards)
-      l.grid(row = 0, column = 0) 
+  def beginScry(self, numCards):
+    # Clean out the scry window
+    for child in self.winfo_children():
+          child.destroy()
+    # Talk to the server, get some cards
+    root.send(VIEWDECK + "01" + "%d" %(numCards)) # Own deck, yes scry, numCards cards
+
+  def passCardsToScry(self, deck):
+    # Got some cards to scry with!
+    l = Label(self, text="Check these puppies out\n"+ ", ".join(deck))
+    l.grid(row = 0, column = 0) 
+    # fill them out on the page as cards
+    # below each, a dropdown with "top of libray, 2nd from top, 3rd, etc"
+    # and "bottom, 2nd from bottom, etc"
+    # and button for "do it"
 
 
 class Game_DeckWindow(Toplevel):
@@ -964,7 +952,7 @@ class Game_Tools(Frame):
         self.buttons[10].config(text = "Flip (Play\nFace Down)",\
                                command = self.flip)
         self.buttons[11].config(text = "Scry",\
-                               command = self.beginScry)
+                               command = self.scryButton)
 
     def draw(self):
         root.send(DRAW)
@@ -1003,15 +991,14 @@ class Game_Tools(Frame):
         root.send(SHUFFLE)
 
     def seeDeck(self):
-        root.send(VIEWDECK + "0")
+        root.send(VIEWDECK + "000") # Own deck, no scry, all cards
     
-    def beginScry(self):
-        # Open the scry window
-        #root.send(VIEWDECK + "0")
-        self.scryMenu = Game_ScryMenu(self)
+    def scryButton(self):
+        # tell GameWindow to open the scry window
+        self.master.createScryWindow()
 
     def seeOpponentDeck(self):
-        root.send(VIEWDECK + "1")
+        root.send(VIEWDECK + "100") # Oppo's deck, no scry, all cards
 
     def tokenMake(self):
         self.master.playBox.addCard(BACK)
@@ -1127,11 +1114,11 @@ class Game_Window(Toplevel):
     def updateLife(self):
         self.displayBar.opponentLife = self.opponent.life
         self.displayBar.life_updateOpponent()
-        
+
+    def createScryWindow(self):    
+      self.scryWindow = Game_ScryWindow(self)
 
         
-    
-
 
 class Player():
     def __init__(self,ID,tag):
@@ -1725,14 +1712,22 @@ class TopWindow(Tk):
             self.gameWindow.handBox.addCard(card)
 
         elif data[0:2] == VIEWDECK:
-            playchar = data[2]
-            data = data[3:]
+            print("Got a viewdeck!")
+            playchar = data[2] 
+            doscry = data[3]
+            data = data[4:]
             deck = []
             while data:
                 deck.append(data[0:9])
                 data = data[9:]
-            self.gameWindow.showDeck(deck,playchar)
-
+            if doscry == "0":
+              print("Viewing whole deck")
+              self.gameWindow.showDeck(deck,playchar)
+            else:
+              # we are scrying...
+              # need to send it to the scry window somehow
+              print("sending " + " ".join(deck) + "to scry menu")
+              self.gameWindow.scryWindow.passCardsToScry(deck)
         elif data[0:2] == CARDPOSITION:
             cardID = int(data[2:5])
             x = int(data[5:9])
