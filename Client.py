@@ -202,27 +202,6 @@ class CardImageManager:
 
     def isCreature(self,multiverseID):
         return 'toughness' in self.allCards[multiverseID]
-        #Obsolete code for using image processing to determine if it's a creature
-##        # Convert to greyscale
-##        im = im.convert("L")
-##        w,h = im.size
-##
-##        # There should be a strong edge between 5 and 6 pixels from the bottom
-##        # average pixel differences along there, NOT doing abs value
-##        pix = im.load()
-##
-##        
-##        # search the bottom half of the image for a strong edge
-##        # ignoring the bottom two rows because of edge effects of downscaling
-##        for row in range(h-3,int(h/2),-1):
-##            diff = 0
-##            for col in range(w):
-##                diff = diff + (pix[col,row]-pix[col,row-1])
-##            aveDiff = diff/w
-##            if abs(aveDiff)> CREATURE_EDGE_THRESHOLD:
-##                return True
-##        return False
-
 
 class ChatBox(Frame):
     def __init__(self,master,sendType = WAITING):
@@ -552,24 +531,79 @@ class Game_ScryWindow(Toplevel):
     self.scryButtons = []
     for i in range(0, 4):
       j = i+1
-      self.scryButtons.append(Button(self, text = "Scry %d" %(i+2), command = lambda j=j: self.beginScry(j) )) #hack alert - need to capture j's value
+      self.scryButtons.append(Button(self, text = "Scry %d" %(j), 
+                              command = lambda j=j: self.beginScry(j) ))
       self.scryButtons[i].grid(row = i+2, column = 0)
 
   def beginScry(self, numCards):
+    self.numCards = numCards
     # Clean out the scry window
     for child in self.winfo_children():
           child.destroy()
     # Talk to the server, get some cards
     root.send(VIEWDECK + "01" + "%d" %(numCards)) # Own deck, yes scry, numCards cards
 
-  def passCardsToScry(self, deck):
+  def passCardsToScry(self, scryCards):
+    
+    # TODO : don't freak out if you cant pull enough cards
+
+    self.cards = scryCards
     # Got some cards to scry with!
-    l = Label(self, text="Check these puppies out\n"+ ", ".join(deck))
+    l = Label(self, text="Where should each card go?")
     l.grid(row = 0, column = 0) 
-    # fill them out on the page as cards
-    # below each, a dropdown with "top of libray, 2nd from top, 3rd, etc"
-    # and "bottom, 2nd from bottom, etc"
-    # and button for "do it"
+  
+ 
+    self.displayCards = []
+    for card in scryCards: 
+      self.displayCards.append(SmallCard(self,card))
+      self.displayCards[-1].grid(row = 1, column = len(self.displayCards) - 1)
+    # TODO : the spaces between the cards are weirdly uneven. Don't know why.
+
+    # Make the menu for where to place them
+    ordinal = lambda n: "%d%s" %(n, "xsnrtddh"[n::3][0:2])
+    # ordinal based on: 
+    #codegolf.stackexchange.com/questions/4707/outputting-ordinal-numbers-1st-2nd-3rd#answer-4712
+    locOptions =[ "Top of deck"]
+    for i in range(1, len(scryCards)):
+      locOptions.append("%s from top" %(ordinal(i + 1)))
+    for i in reversed(xrange(1, len(scryCards))):
+      locOptions.append("%s from bottom" %(ordinal(i + 1)))
+    locOptions.append("Bottom of deck")
+ 
+    self.pickLocMenu = []
+    self.locsPicked = []
+    for i in range(0, len(scryCards)):
+      self.locsPicked.append(StringVar(self))
+      self.locsPicked[-1].set(locOptions[i]) # give it a nice default
+      self.pickLocMenu.append(OptionMenu(self, self.locsPicked[i], *locOptions))
+      self.pickLocMenu[i].grid(row = 3, column = i)
+    
+    self.doScryButton = Button(self, text = "Scry!", command = self.doScry)
+    self.doScryButton.grid(row = 4, column = 0)
+
+  def doScry(self):
+    # Run the scry.
+    # Draw the appropriate # of cards from the server
+    # Then place them either on top or bottom according to corresponding thingy chosen.
+    print "Scry choices: "
+    for loc in self.locsPicked:
+      print loc.get()
+
+    for card in self.cards:
+      print card
+    print "scry going bye bye"
+    # do DRAW(length(scryCards))
+    # TODO : error checking that we actually drew the cards we were expecting
+    # so we want to arrange the cards into two groups: Top and Bottom
+    # and within each group, arrange them from innermost (4th from top/bottom) to outermost (Top of/ Bottom of)
+    # Then, in order, PLACE ON TOP and PLACE ON BOTTOM the respective groups 
+
+    # TODO: warn opponent I just scryed n, putting x on bottom and y on top
+    self.destroy()
+
+
+  def showBigCard(self,card):
+    self.master.showBigCard(card)
 
 
 class Game_DeckWindow(Toplevel):
@@ -1712,7 +1746,6 @@ class TopWindow(Tk):
             self.gameWindow.handBox.addCard(card)
 
         elif data[0:2] == VIEWDECK:
-            print("Got a viewdeck!")
             playchar = data[2] 
             doscry = data[3]
             data = data[4:]
@@ -1721,13 +1754,10 @@ class TopWindow(Tk):
                 deck.append(data[0:9])
                 data = data[9:]
             if doscry == "0":
-              print("Viewing whole deck")
               self.gameWindow.showDeck(deck,playchar)
             else:
-              # we are scrying...
-              # need to send it to the scry window somehow
-              print("sending " + " ".join(deck) + "to scry menu")
               self.gameWindow.scryWindow.passCardsToScry(deck)
+
         elif data[0:2] == CARDPOSITION:
             cardID = int(data[2:5])
             x = int(data[5:9])
