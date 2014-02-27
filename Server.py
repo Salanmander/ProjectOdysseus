@@ -20,7 +20,7 @@ PORT = 21567
 BUFSIZ = 1024
 ADDR = (HOST, PORT)
 #setList = ['SHM','SHM','SHM']
-setList = ['DRK']
+setList = ['SHM']
 
 
 class CardDataManager():
@@ -190,7 +190,6 @@ class Pack():
                     removeCommon = False
                 else:
                     card = random.choice(guru.sets[setCode][slot])
-                    print card
                     while card in self.cards:
                         card = random.choice(guru.sets[setCode][slot])
                     self.cards.append(card)
@@ -208,6 +207,10 @@ class Pack():
                 else:                    
                     card = random.choice(guru.sets[setCode]['rare'])
                     self.cards.append(card)
+            # Only useful for modern masters
+            elif isinstance(slot,list) and 'foil common' in slot:
+                card = random.choice(guru.allSets[setCode]['cards'])
+                self.cards.append(card)
             else:
                 #un-implemented types in the booster:
                 # marketing, checklist, double faced

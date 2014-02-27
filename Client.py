@@ -295,8 +295,8 @@ class ChatBox(Frame):
 class Deck_DeckBox(Frame):
     def __init__(self,master):
         Frame.__init__(self,master)
-        self.config(height = opts['draft_pickedheight'], \
-                    width = opts['draft_pickedwidth'] + opts['bigcardwidth'])
+        self.config(height = opts['deck_deckheight'], \
+                    width = opts['deck_deckwidth'])
         self.config(bd = 2, relief = RIDGE)
         self.config(bg = 'White')
         self.cardLabels = []
@@ -671,13 +671,14 @@ class Game_Display(Frame):
         self.life = 20
         self.deck = 0
 
+
         self.opponentLifeLabel = Label(self, text = "  Life  \n" + \
                                     str(self.opponentLife))
         self.opponentDeckLabel = Label(self, text = "Deck\n"+ \
                                        str(self.opponentDeck))
         self.opponentHandLabel = Label(self, text = "Hand\n"+ \
                                        str(self.opponentHand))
-        
+
         self.lifeFrame = Frame(self)
         self.lifeBox = Entry(self.lifeFrame, width = 3)
         self.lifeBox.insert(END,str(self.life))
@@ -693,13 +694,18 @@ class Game_Display(Frame):
 
         self.deckLabel = Label(self, text = "Deck\n"+str(self.deck))
 
-        self.opponentLifeLabel.place(x = opts['game_labeloffset'], y = 0)
-        self.opponentDeckLabel.place(x = opts['game_labeloffset'], y = opts['game_labelspace'])
-        self.opponentHandLabel.place(x = opts['game_labeloffset'], y = 2*opts['game_labelspace'])
         
-        self.lifeFrame.place(x = 0, y = opts['game_playheight'] / 2)
-        self.deckLabel.place(x = opts['game_labeloffset'], \
-                             y = opts['game_playheight']/2 + opts['game_labelspace'])
+        self.opponentLifeLabel.place(x = opts['game_opponentlifeX'], y = opts['game_opponentlifeY'])
+        self.opponentDeckLabel.place(x = opts['game_opponentlifeX'],
+                                     y = opts['game_opponentlifeY'] + opts['game_labelspace'])
+        self.opponentHandLabel.place(x = opts['game_opponentlifeX'],
+                                     y = opts['game_opponentlifeY'] + 2*opts['game_labelspace'])
+        
+        self.lifeFrame.place(x = opts['game_selflifeX'], y = opts['game_selflifeY'])
+        self.deckLabel.place(x = opts['game_selflifeX'] + opts['game_deckoffset'], 
+                             y = opts['game_selflifeY']+ opts['game_labelspace'])
+
+
 
     def life_add(self):
         self.life = self.life + 1
@@ -800,19 +806,24 @@ class Game_Hand(Frame):
 
 class Game_Messages(Frame):
     def __init__(self,master):
+        print('A')
         Frame.__init__(self,master)
         self.messageBoxes = []
-        for i in range(opts['game_messagenum']):
-            newBox = Entry(self)
-            newBox.config(width = opts['game_messagewidth'])
-            newBox.bind("<Return>",self.send)
-            newBox.pack(pady = 3)
+        i = 0
+        for r in range(opts['game_messagerows']):
+            for c in range(opts['game_messagecols']):
+                newBox = Entry(self)
+                newBox.config(width = opts['game_messagewidth'])
+                newBox.bind("<Return>",self.send)
+                newBox.grid(row = r, column = c, padx = 1, pady = 1)
             
-            # These pre-made messages are defined
-            # at the top of the file
-            if i < len(opts['game_messages']):
-                newBox.insert(END,opts['game_messages'][i])
-            self.messageBoxes.append(newBox)
+                # These pre-made messages are defined
+                # at the top of the file
+                if i < len(opts['game_messages']):
+                    newBox.insert(END,opts['game_messages'][i])
+                self.messageBoxes.append(newBox)
+
+                i = i+1
 
     def send(self, event):
         message = event.widget.get()
@@ -1824,12 +1835,13 @@ class TopWindow(Tk):
         self.playerBox.resize(opts['draft_playerwidth'], opts['draft_playerheight'])
         self.playerBox.pack_forget()
 
-
-        self.packBox.grid(row = 0, column = 0, columnspan = 3)
-        self.cardBox.grid(row = 1, column = 0)
-        self.pickedBox.grid(row = 1, column = 1, columnspan = 2)
-        self.chatBox.grid(row = 2, column = 1)
-        self.playerBox.grid(row = 2, column = 2)
+        g = opts['draft_grids']
+        self.packBox.grid(row = g['packr'], column = g['packc'],
+                          rowspan = g['packrs'], columnspan = g['packcs'])
+        self.cardBox.grid(row = g['cardr'], column = g['cardc'])
+        self.pickedBox.grid(row = g['pickr'], column = g['pickc'], columnspan = g['pickcs'])
+        self.chatBox.grid(row = g['chatr'], column = g['chatc'],columnspan = g['chatcs'])
+        self.playerBox.grid(row = g['plyrr'], column = g['plyrc'],columnspan = g['plyrcs'])
         
 
         
@@ -1878,12 +1890,16 @@ class TopWindow(Tk):
     def deck_start(self):
         # Most of the interface is staying the same from the drafting window
         self.packBox.destroy()
-
-        self.deckBox = Deck_DeckBox(self)
-        self.deckBox.grid(row = 0, column = 0, columnspan = 3, sticky = N+E+W+S)
-
+        
+        g = opts['deck_grids']
         self.landBox = Deck_LandOptions(self)
-        self.landBox.grid(row = 2, column = 0, sticky = N)
+        self.landBox.grid(row = g['landr'], column = g['landc'],
+                          rowspan = g['landrs'], sticky = N)
+        
+        self.deckBox = Deck_DeckBox(self)
+        self.deckBox.grid(row = g['deckr'], column = g['deckc'], rowspan = g['deckrs'],
+                          columnspan = g['deckcs'], sticky = N+E+W+S)
+
 
         self.pickedBox.enableMoveToDeck()
 
