@@ -50,7 +50,9 @@ VIEWDECK = 'ce' # First char is player: 0 for self, 1 for opponent
                 # the card infos, 9 chars per card
 DECKREMOVE = 'cf' # Tells server to remove one copy of given card from
                     # (0/1) self or opponent's deck
-                    # NOT GUARANTEED to take card from desired position
+                    # Will ALWAYS take the copy closest to top of deck, even
+                    # if the remove event was triggered by clicking
+                    # a different copy
                     
 CARDPOSITION = 'cg' #These allow sharing of the virtual tabletop
 NEWPLAYCARD = 'ch'

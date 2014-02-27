@@ -568,7 +568,8 @@ class TopWindow(Tk):
             else: #do scry
               # TODO : should check whoseDeck char to make sure scrying from own deck
               numCards = int(data[4:])
-              for i in range(0, numCards):
+              # TODO there was a bug earlier that should have gotten an IndexError but it didn't show...why?
+              for i in range(0, min(len(client.deck.cards),numCards)): # only scry as many as in deck
                 currCard = client.deck.cards[i]
                 outData = outData + currCard['set'] + currCard['multiverseid'] 
               self.sendRobust(client, outData)

@@ -540,42 +540,61 @@ class Game_ScryWindow(Toplevel):
     # Clean out the scry window
     for child in self.winfo_children():
           child.destroy()
+
     # Talk to the server, get some cards
     root.send(VIEWDECK + "01" + "%d" %(numCards)) # Own deck, yes scry, numCards cards
+
+    # Does the server even reply if you have no cards in deck? it SHOULD
 
   def passCardsToScry(self, scryCards):
     
     # TODO : don't freak out if you cant pull enough cards
 
     self.cards = scryCards
+
+   
     # Got some cards to scry with!
-    l = Label(self, text="Where should each card go?")
+   
+    self.doScryButton = Button(self, text = "Scry!", command = self.doScry)
+
+  
+    labeltext="Where should each card go?"
+    if (self.cards == []):
+      labeltext = "Deck is empty, so no scry cards found."
+      self.doScryButton = Button(self, text = "Exit", command = self.destroy)
+      # TODO : why does this ^ not overwrite the scry! above? do i have to destroy & recreate it?
+
+    l = Label(self, text=labeltext)
     l.grid(row = 0, column = 0) 
   
+    self.doScryButton.grid(row = 4, column = 0)
  
     self.displayCards = []
     for card in scryCards: 
       self.displayCards.append(SmallCard(self,card))
       self.displayCards[-1].grid(row = 1, column = len(self.displayCards) - 1)
-    # TODO : the spaces between the cards are weirdly uneven. Don't know why.
 
-    # Make the menu for where to place them
+    # Make the menu for where to place cards with 2 options lists
     ordinal = lambda n: "%d%s" %(n, "xsnrtddh"[n::3][0:2])
     # ordinal based on: 
     #codegolf.stackexchange.com/questions/4707/outputting-ordinal-numbers-1st-2nd-3rd#answer-4712
-    locOptions =[ "Top of deck"]
+    self.locOptsTop = ["Top of deck"] 
     for i in range(1, len(scryCards)):
-      locOptions.append("%s from top" %(ordinal(i + 1)))
+      self.locOptsTop.append("%s from top" %(ordinal(i + 1)))
+
+    self.locOptsBot = []
     for i in reversed(xrange(1, len(scryCards))):
-      locOptions.append("%s from bottom" %(ordinal(i + 1)))
-    locOptions.append("Bottom of deck")
- 
+      self.locOptsBot.append("%s from bottom" %(ordinal(i + 1)))
+    self.locOptsBot.append("Bottom of deck")
+
+
     self.pickLocMenu = []
     self.locsPicked = []
     for i in range(0, len(scryCards)):
       self.locsPicked.append(StringVar(self))
-      self.locsPicked[-1].set(locOptions[i]) # give it a nice default
-      self.pickLocMenu.append(OptionMenu(self, self.locsPicked[i], *locOptions))
+      self.locsPicked[-1].set(self.locOptsTop[i]) # default to no change
+      self.pickLocMenu.append(OptionMenu(self, self.locsPicked[i],
+                            *(self.locOptsTop + self.locOptsBot)))
       self.pickLocMenu[i].grid(row = 3, column = i)
     
     self.doScryButton = Button(self, text = "Scry!", command = self.doScry)
@@ -585,18 +604,57 @@ class Game_ScryWindow(Toplevel):
     # Run the scry.
     # Draw the appropriate # of cards from the server
     # Then place them either on top or bottom according to corresponding thingy chosen.
-    print "Scry choices: "
+
+    # Get useful strings instead of stringVars
+    locsPickedStrs = []
     for loc in self.locsPicked:
-      print loc.get()
+      locsPickedStrs.append(loc.get())
+
+    print "Scry choices: "
+    print locsPickedStrs   
+ 
+    if (len(locsPickedStrs) != len(set(locsPickedStrs))):
+      # Player didn't pick unique locations. TODO prevent this from being possible
+      self.master.chatBox.recvMessage("You tried to put two cards in the same deck location!" +\
+                                      "The relative order may not be preserved.")
+
+    goesToTop = []
+    goesToBottom = []
+   
+    # In the picked strings, find all instances of each top location and
+    # queue the cards at the corresponding index to go to the top in order
+    for loc in self.locOptsTop:
+      foundLoc = [i for i,j in enumerate(locsPickedStrs) if j == loc] 
+      for i in foundLoc:
+        # for each index, find the card at that index
+        goesToTop = [self.cards[i]] + goesToTop       
+   
+    # same for bottom, but reverse-queue cards since order of locOpsBot is reversed 
+    for loc in self.locOptsBot:
+      foundLoc = [i for i,j in enumerate(locsPickedStrs) if j == loc] 
+      for i in foundLoc:
+        # for each index, find the card at that index
+        goesToBottom.append(self.cards[i])      
+
+    print("we will DRAW %d cards" %(len(self.cards)))
+    print("We will put on the TOPDECK in order: " , goesToTop)
+    print "ANd on BOTTOMDECK in order: ", goesToBottom
 
     for card in self.cards:
-      print card
-    print "scry going bye bye"
-    # do DRAW(length(scryCards))
+      root.send(DECKREMOVE + "0" + card) #TODO implementation alert, magic number alert
+      # Assumes you are scrying on yourself AND that deckremove takes the topmost.
+      # timing alert - weirdness may happen (haven't thought it through) if the DECKTOPS etc go through
+      # before this does. stick in a sleep just in case. Yuck.
+
+    time.sleep(0.05) 
+ 
+    for card in goesToTop:
+      root.send(DECKTOP + card)
+    
+    for card in goesToBottom:
+      root.send(DECKBOTTOM + card) 
+    
     # TODO : error checking that we actually drew the cards we were expecting
-    # so we want to arrange the cards into two groups: Top and Bottom
-    # and within each group, arrange them from innermost (4th from top/bottom) to outermost (Top of/ Bottom of)
-    # Then, in order, PLACE ON TOP and PLACE ON BOTTOM the respective groups 
 
     # TODO: warn opponent I just scryed n, putting x on bottom and y on top
     self.destroy()
