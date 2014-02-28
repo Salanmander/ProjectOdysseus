@@ -202,27 +202,6 @@ class CardImageManager:
 
     def isCreature(self,multiverseID):
         return 'toughness' in self.allCards[multiverseID]
-        #Obsolete code for using image processing to determine if it's a creature
-##        # Convert to greyscale
-##        im = im.convert("L")
-##        w,h = im.size
-##
-##        # There should be a strong edge between 5 and 6 pixels from the bottom
-##        # average pixel differences along there, NOT doing abs value
-##        pix = im.load()
-##
-##        
-##        # search the bottom half of the image for a strong edge
-##        # ignoring the bottom two rows because of edge effects of downscaling
-##        for row in range(h-3,int(h/2),-1):
-##            diff = 0
-##            for col in range(w):
-##                diff = diff + (pix[col,row]-pix[col,row-1])
-##            aveDiff = diff/w
-##            if abs(aveDiff)> CREATURE_EDGE_THRESHOLD:
-##                return True
-##        return False
-
 
 class ChatBox(Frame):
     def __init__(self,master,sendType = WAITING):
@@ -542,46 +521,147 @@ class Draft_PickedCards(Frame):
     def moveToDeck(self,event):
         cardLabel = event.widget
         self.removeCard(cardLabel)
-
         self.master.deck_moveToDeck(cardLabel.card)
-class Game_ScryMenu(Toplevel):
+
+class Game_ScryWindow(Toplevel):
   def __init__(self, master):
     Toplevel.__init__(self, master)
-    print("creating scry menu")
-    # does self refer to the windowy thing here???
-    self.wm_title = "Scry or View Deck"
+    self.wm_title = "Scry"
     # For now, only do own deck. deal with oppo's later.
-
-    #self.whoseDeck = Checkbutton(t, text="Look at opponent's deck instead") #variable=var
-    #self.whoseDeck.grid(row = 1, column = 0)
-    self.wholeDeck = Button(self, text = "Look at my Deck", command = lambda: self.scry(0)) # lambda so it doesn't fire on load
-    self.wholeDeck.grid(row = 2, column = 1)
     self.scryButtons = []
     for i in range(0, 4):
       j = i+1
-      self.scryButtons.append(Button(self, text = "Scry %d" %(i+1), command = lambda j=j: self.scry(j) )) #hack alert - need to capture j's value
+      self.scryButtons.append(Button(self, text = "Scry %d" %(j), 
+                              command = lambda j=j: self.beginScry(j) ))
       self.scryButtons[i].grid(row = i+2, column = 0)
 
-  def scry(self, numCards):
-    # 0 = viewing own deck and kill the scry window
-    if numCards == 0:
-      root.send(VIEWDECK + "0")
-      self.destroy()
-    else:
-      # get the # of cards from the server
-      # set them up all pretty like
-      # and let ppl click to ... yes.
-      # set them up all visible.
-      # below each, a dropdown with "top of libray, 2nd from top, 3rd, etc"
-      # and "bottom, 2nd from bottom, etc"
-      # and button for "do it"
-      print("Scried %d cards. NYI." %numCards)
-      # Clean out the contents 
-      for child in self.winfo_children():
-            child.destroy()
-      # Talk to the server, get some cards
-      l = Label(self, text="Would scry %d but it's NYI!" %numCards)
-      l.grid(row = 0, column = 0) 
+  def beginScry(self, numCards):
+    self.numCards = numCards
+    # Clean out the scry window
+    for child in self.winfo_children():
+          child.destroy()
+
+    # Talk to the server, get some cards
+    root.send(VIEWDECK + "01" + "%d" %(numCards)) # Own deck, yes scry, numCards cards
+
+    # Does the server even reply if you have no cards in deck? it SHOULD
+
+  def passCardsToScry(self, scryCards):
+    
+    # TODO : don't freak out if you cant pull enough cards
+
+    self.cards = scryCards
+
+   
+    # Got some cards to scry with!
+   
+    self.doScryButton = Button(self, text = "Scry!", command = self.doScry)
+
+  
+    labeltext="Where should each card go?"
+    if (self.cards == []):
+      labeltext = "Deck is empty, so no scry cards found."
+      self.doScryButton = Button(self, text = "Exit", command = self.destroy)
+      # TODO : why does this ^ not overwrite the scry! above? do i have to destroy & recreate it?
+
+    l = Label(self, text=labeltext)
+    l.grid(row = 0, column = 0) 
+  
+    self.doScryButton.grid(row = 4, column = 0)
+ 
+    self.displayCards = []
+    for card in scryCards: 
+      self.displayCards.append(SmallCard(self,card))
+      self.displayCards[-1].grid(row = 1, column = len(self.displayCards) - 1)
+
+    # Make the menu for where to place cards with 2 options lists
+    ordinal = lambda n: "%d%s" %(n, "xsnrtddh"[n::3][0:2])
+    # ordinal based on: 
+    #codegolf.stackexchange.com/questions/4707/outputting-ordinal-numbers-1st-2nd-3rd#answer-4712
+    self.locOptsTop = ["Top of deck"] 
+    for i in range(1, len(scryCards)):
+      self.locOptsTop.append("%s from top" %(ordinal(i + 1)))
+
+    self.locOptsBot = []
+    for i in reversed(xrange(1, len(scryCards))):
+      self.locOptsBot.append("%s from bottom" %(ordinal(i + 1)))
+    self.locOptsBot.append("Bottom of deck")
+
+
+    self.pickLocMenu = []
+    self.locsPicked = []
+    for i in range(0, len(scryCards)):
+      self.locsPicked.append(StringVar(self))
+      self.locsPicked[-1].set(self.locOptsTop[i]) # default to no change
+      self.pickLocMenu.append(OptionMenu(self, self.locsPicked[i],
+                            *(self.locOptsTop + self.locOptsBot)))
+      self.pickLocMenu[i].grid(row = 3, column = i)
+    
+    self.doScryButton = Button(self, text = "Scry!", command = self.doScry)
+    self.doScryButton.grid(row = 4, column = 0)
+
+  def doScry(self):
+    # Run the scry.
+    # Draw the appropriate # of cards from the server
+    # Then place them either on top or bottom according to corresponding thingy chosen.
+
+    # Get useful strings instead of stringVars
+    locsPickedStrs = []
+    for loc in self.locsPicked:
+      locsPickedStrs.append(loc.get())
+
+    print "Scry choices: "
+    print locsPickedStrs   
+ 
+    if (len(locsPickedStrs) != len(set(locsPickedStrs))):
+      # Player didn't pick unique locations. TODO prevent this from being possible
+      self.master.chatBox.recvMessage("You tried to put two cards in the same deck location!" +\
+                                      "The relative order may not be preserved.")
+
+    goesToTop = []
+    goesToBottom = []
+   
+    # In the picked strings, find all instances of each top location and
+    # queue the cards at the corresponding index to go to the top in order
+    for loc in self.locOptsTop:
+      foundLoc = [i for i,j in enumerate(locsPickedStrs) if j == loc] 
+      for i in foundLoc:
+        # for each index, find the card at that index
+        goesToTop = [self.cards[i]] + goesToTop       
+   
+    # same for bottom, but reverse-queue cards since order of locOpsBot is reversed 
+    for loc in self.locOptsBot:
+      foundLoc = [i for i,j in enumerate(locsPickedStrs) if j == loc] 
+      for i in foundLoc:
+        # for each index, find the card at that index
+        goesToBottom.append(self.cards[i])      
+
+    print("we will DRAW %d cards" %(len(self.cards)))
+    print("We will put on the TOPDECK in order: " , goesToTop)
+    print "ANd on BOTTOMDECK in order: ", goesToBottom
+
+    for card in self.cards:
+      root.send(DECKREMOVE + "0" + card) #TODO implementation alert, magic number alert
+      # Assumes you are scrying on yourself AND that deckremove takes the topmost.
+      # timing alert - weirdness may happen (haven't thought it through) if the DECKTOPS etc go through
+      # before this does. stick in a sleep just in case. Yuck.
+
+    time.sleep(0.05) 
+ 
+    for card in goesToTop:
+      root.send(DECKTOP + card)
+    
+    for card in goesToBottom:
+      root.send(DECKBOTTOM + card) 
+    
+    # TODO : error checking that we actually drew the cards we were expecting
+
+    # TODO: warn opponent I just scryed n, putting x on bottom and y on top
+    self.destroy()
+
+
+  def showBigCard(self,card):
+    self.master.showBigCard(card)
 
 
 class Game_DeckWindow(Toplevel):
@@ -975,7 +1055,7 @@ class Game_Tools(Frame):
         self.buttons[10].config(text = "Flip (Play\nFace Down)",\
                                command = self.flip)
         self.buttons[11].config(text = "Scry",\
-                               command = self.beginScry)
+                               command = self.scryButton)
 
     def draw(self):
         root.send(DRAW)
@@ -1014,15 +1094,14 @@ class Game_Tools(Frame):
         root.send(SHUFFLE)
 
     def seeDeck(self):
-        root.send(VIEWDECK + "0")
+        root.send(VIEWDECK + "000") # Own deck, no scry, all cards
     
-    def beginScry(self):
-        # Open the scry window
-        #root.send(VIEWDECK + "0")
-        self.scryMenu = Game_ScryMenu(self)
+    def scryButton(self):
+        # tell GameWindow to open the scry window
+        self.master.createScryWindow()
 
     def seeOpponentDeck(self):
-        root.send(VIEWDECK + "1")
+        root.send(VIEWDECK + "100") # Oppo's deck, no scry, all cards
 
     def tokenMake(self):
         self.master.playBox.addCard(BACK)
@@ -1138,11 +1217,11 @@ class Game_Window(Toplevel):
     def updateLife(self):
         self.displayBar.opponentLife = self.opponent.life
         self.displayBar.life_updateOpponent()
-        
+
+    def createScryWindow(self):    
+      self.scryWindow = Game_ScryWindow(self)
 
         
-    
-
 
 class Player():
     def __init__(self,ID,tag):
@@ -1736,13 +1815,17 @@ class TopWindow(Tk):
             self.gameWindow.handBox.addCard(card)
 
         elif data[0:2] == VIEWDECK:
-            playchar = data[2]
-            data = data[3:]
+            playchar = data[2] 
+            doscry = data[3]
+            data = data[4:]
             deck = []
             while data:
                 deck.append(data[0:9])
                 data = data[9:]
-            self.gameWindow.showDeck(deck,playchar)
+            if doscry == "0":
+              self.gameWindow.showDeck(deck,playchar)
+            else:
+              self.gameWindow.scryWindow.passCardsToScry(deck)
 
         elif data[0:2] == CARDPOSITION:
             cardID = int(data[2:5])

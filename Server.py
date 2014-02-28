@@ -554,17 +554,28 @@ class TopWindow(Tk):
         elif data[0:2] == VIEWDECK:
             whoseDeck = ""
             warning = "Your opponent is looking at "
-            if data[2] == "0":
-                whoseDeck = "their own deck!"
-                for card in client.deck.cards:
-                    data = data + card['set'] + card['multiverseid']
-            else:
-                whoseDeck = "your deck!"
-                for card in client.opponent.deck.cards:
-                    data = data + card['set'] + card['multiverseid']
-            self.sendRobust(client,data)
-            # Warn the opponent of the deck inspection
-            self.sendRobust(client.opponent, MESSAGE + GAME + warning + whoseDeck)
+            outData = VIEWDECK + data[2] + data[3] # VIEWDECK + whose + scry? DOES NOT include cardcount
+            if data[3] == "0": # dont scry
+            # TODO -- if not scrying, should only send requested# of cards instead of whole deck
+              if data[2] == "0":
+                  whoseDeck = "their own deck!"
+                  for card in client.deck.cards:
+                      outData = outData + card['set'] + card['multiverseid']
+              else:
+                  whoseDeck = "your deck!"
+                  for card in client.opponent.deck.cards:
+                      outData = outData + card['set'] + card['multiverseid']
+              self.sendRobust(client,outData)
+              # Warn the opponent of the deck inspection
+              self.sendRobust(client.opponent, MESSAGE + GAME + warning + whoseDeck)
+            else: #do scry
+              # TODO : should check whoseDeck char to make sure scrying from own deck
+              numCards = int(data[4:])
+              # TODO there was a bug earlier that should have gotten an IndexError but it didn't show...why?
+              for i in range(0, min(len(client.deck.cards),numCards)): # only scry as many as in deck
+                currCard = client.deck.cards[i]
+                outData = outData + currCard['set'] + currCard['multiverseid'] 
+              self.sendRobust(client, outData)
 
         elif data[0:2] == DECKREMOVE:
             if data[2] ==  "0":
