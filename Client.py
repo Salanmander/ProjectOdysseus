@@ -1063,8 +1063,8 @@ class Game_Tools(Frame):
     def deckBottom(self):
         self.unpressAll()
         self.master.moveToDeckBottom = True
-        self.buttons[2].config(relief = SUNKEN)
-        self.buttons[2].config(command = self.unpressAll)
+        self.buttons[5].config(relief = SUNKEN)
+        self.buttons[5].config(command = self.unpressAll)
 
     def deckTop(self):
         self.unpressAll()
@@ -1075,20 +1075,20 @@ class Game_Tools(Frame):
     def moveToHand(self):
         self.unpressAll()
         self.master.moveToHand = True
-        self.buttons[3].config(relief = SUNKEN)
-        self.buttons[3].config(command = self.unpressAll)
+        self.buttons[4].config(relief = SUNKEN)
+        self.buttons[4].config(command = self.unpressAll)
 
     def flip(self):
         self.unpressAll()
         self.master.flipCard = True
-        self.buttons[4].config(relief = SUNKEN)
-        self.buttons[4].config(command = self.unpressAll)
+        self.buttons[10].config(relief = SUNKEN)
+        self.buttons[10].config(command = self.unpressAll)
 
     def peek(self):
         self.unpressAll()
         self.master.peekAtCard = True
-        self.buttons[5].config(relief = SUNKEN)
-        self.buttons[5].config(command = self.unpressAll)
+        self.buttons[9].config(relief = SUNKEN)
+        self.buttons[9].config(command = self.unpressAll)
 
     def shuffle(self):
         root.send(SHUFFLE)
@@ -1113,6 +1113,7 @@ class Game_Tools(Frame):
         self.buttons[7].config(command = self.unpressAll)
 
     def unpressAll(self):
+        
         # deckTop button
         self.master.moveToDeckTop = False
         self.buttons[1].config(relief = RAISED)
@@ -1120,23 +1121,23 @@ class Game_Tools(Frame):
 
         # deckBottom
         self.master.moveToDeckBottom = False
-        self.buttons[2].config(relief = RAISED)
-        self.buttons[2].config(command = self.deckBottom)
+        self.buttons[5].config(relief = RAISED)
+        self.buttons[5].config(command = self.deckBottom)
 
         # hand
         self.master.moveToHand = False
-        self.buttons[3].config(relief = RAISED)
-        self.buttons[3].config(command = self.moveToHand)
+        self.buttons[4].config(relief = RAISED)
+        self.buttons[4].config(command = self.moveToHand)
 
         # flip
         self.master.flipCard = False
-        self.buttons[4].config(relief = RAISED)
-        self.buttons[4].config(command = self.flip)
+        self.buttons[10].config(relief = RAISED)
+        self.buttons[10].config(command = self.flip)
 
         # peek
         self.master.peekAtCard = False
-        self.buttons[5].config(relief = RAISED)
-        self.buttons[5].config(command = self.peek)
+        self.buttons[9].config(relief = RAISED)
+        self.buttons[9].config(command = self.peek)
         
 
         # token destroy
