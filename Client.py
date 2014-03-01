@@ -1029,8 +1029,10 @@ class Game_Tools(Frame):
         self.buttons = []
         for row in range(3):
             for column in range(4):
-                button = Button(self, text = "Button " + \
-                                str(4*row + column + 1))
+##                # Potentially makes buttons display well on osX?
+                button = Widget(self, 'ttk::button',dict(text = "No"))
+##                button = Button(self, text = "Button " + \
+##                                str(4*row + column + 1))
                 button.grid(row = row, column = column, pady = 2, padx = 2)
                 self.buttons.append(button)
 
@@ -1056,6 +1058,10 @@ class Game_Tools(Frame):
                                command = self.flip)
         self.buttons[11].config(text = "Scry",\
                                command = self.scryButton)
+
+        for b in self.buttons:
+            b.config(width = 1+ max(map(lambda x:len(x),
+                                     b.cget('text').split('\n'))))
 
     def draw(self):
         root.send(DRAW)
