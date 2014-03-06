@@ -61,10 +61,6 @@ GAME_PLAYWIDTH_BASE = 3700  # scale.
 # Other card appearance parameters
 TEXTBOXCOLOR = (245,240,235)
 
-# Flag that prevents you from selecting multiple cards by clicking a
-# bunch of times in one place
-DOUBLESELECTPROTECTION = True
-
 
 allResOptions = dict()
 

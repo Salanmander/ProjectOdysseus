@@ -20,7 +20,7 @@ PORT = 21567
 BUFSIZ = 1024
 ADDR = (HOST, PORT)
 #setList = ['SHM','SHM','SHM']
-setList = ['THS','THS','THS']
+setList = ['SHM']
 
 
 class CardDataManager():
@@ -184,7 +184,7 @@ class Pack():
         makeFoil = random.random() < 0.25
         removeCommon = makeFoil
         for slot in boosterFormat:
-            #print slot
+            print slot
             if slot in ("common","uncommon","rare","mythic rare"):
                 if removeCommon and slot == 'common':
                     removeCommon = False
@@ -367,7 +367,7 @@ class TopWindow(Tk):
                         data = self.dataQueue[0:index]
                         self.dataQueue = self.dataQueue\
                                             [index + len(ENDPACKET):]
-                        #print "Received: " + data + " from " + client.tag
+                        print "Received: " + data + " from " + client.tag
                         self.checkNetwork_handlePacket(client, data)
                 except:pass
 
@@ -473,17 +473,23 @@ class TopWindow(Tk):
             client.deck.shuffle()
 
         elif data[0:2] == LANDLIST:
+            print "adding lands"
             data = data[2:]
             # Go through each land type
             for landType in ((PLAINS,"plains"), (ISLAND,"island"),
                              (SWAMP,"swamp"), (MOUNTAIN,"mountain"),
                              (FOREST,"forest")):
+                print landType
                 # Get the appropriate number
                 index = 2*landType[0]
                 num = int(data[index:index+2])
+                print num
                 # Add that many lands of that type
                 for i in range(num):
+                    print guru.sets.keys()
                     s = random.choice(guru.sets.values())
+                    print s.keys()
+                    print s['land'].keys()
                     card = random.choice(s['land'][landType[1]])
                     client.deck.append(card['set']+card['multiverseid'])
 
@@ -759,10 +765,12 @@ class TopWindow(Tk):
             return baseName
 
     def makePlayerlist(self):
+        print('Starting to make playerlist.')
         data = PLAYERLIST
         for client in self.clients.values():
             data = data+client.ID+MARK
         data = data[0:-1] #remove the last mark
+        print('Successfully made playerlist: ' + data)
         return data
 
     def removeClient(self, client):
@@ -773,7 +781,7 @@ class TopWindow(Tk):
 
 
     def sendRobust(self,recipient,data):
-        #print("Sending: "+data+" to "+recipient.tag)
+        print("Sending: "+data+" to "+recipient.tag)
         try:
             recipient.socket.sendall(data + ENDPACKET)
         except:

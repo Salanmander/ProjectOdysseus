@@ -87,15 +87,15 @@ class CardImageManager:
         self.blankImage = Image.new("RGB",(opts['thumbwidth'],opts['thumbheight']))
 
     def loadCard(self,card):
-        print ("Loading a card...")
-        #t = time.time()
+        print ("startload")
+        t = time.time()
         setCode =  card[0:3]
         multiverseID = card[3:]
         d = CARDDIR+setCode
         filename = d+"/"+multiverseID+".jpg"
         if not multiverseID in self.allCards:
             self.loadSetData(setCode)
-            #print (time.time() - t)
+            print (time.time() - t)
         try:
             temp_image = Image.open(filename)
         except IOError: # Should be thrown if file doesn't exist
@@ -116,7 +116,7 @@ class CardImageManager:
                     os.makedirs(d)
                 temp_image.save(filename,"JPEG")
 
-        #print (time.time()-t)
+        print (time.time()-t)
         self.loadHelper(multiverseID,temp_image)
         return
 
@@ -359,7 +359,10 @@ class Deck_LandOptions(Frame):
                                   columnspan = 4, pady = 20)
         
     def getLandData(self):
+        print("Getting land data")
+        print self.plainsBox.get()
         plains = self.plainsBox.get().zfill(2)
+        print plains
         islands = self.islandBox.get().zfill(2)
         swamps = self.swampBox.get().zfill(2)
         mountains = self.mountainBox.get().zfill(2)
@@ -437,14 +440,10 @@ class Draft_Pack(Frame):
         i = 0
         for card in pack:
             self.cardLabels[i] = SmallCard(self, card)
-            self.cardLabels[i].config(bg = "White")
-            if DOUBLESELECTPROTECTION and len(pack)>4:
-                self.cardLabels[i].bind("<Leave>",self.bindingHelper)
-            else:
-                self.cardLabels[i].bind("<Double-Button-1>",self.pickCard)
             self.cardLabels[i].grid(row = int(i/n), column = i%n)
+            self.cardLabels[i].config(bg = "White")
+            self.cardLabels[i].bind("<Double-Button-1>",self.pickCard)
             i = i+1
-
 
 
         # This fills the rest of the panel with blank white JPEGs that don't
@@ -456,14 +455,9 @@ class Draft_Pack(Frame):
             self.cardLabels[i].config(bg = "White")
             self.cardLabels[i].grid(row = int(i/n), column = i%n)
             i = i+1
-
-    def bindingHelper(self,event):
-        for i in range(15):
-            self.cardLabels[i].bind("<Double-Button-1>",self.pickCard)
+        
 
     def pickCard(self,event):
-        for i in range(15):
-            self.cardLabels[i].unbind("<Double-Button-1>")
         index = self.cardLabels.index(event.widget)
         card = self.pack[index]
         self.master.draft_pickCard(card)
@@ -696,7 +690,9 @@ class Game_DeckWindow(Toplevel):
         self.backing.place(x = 0, y = 0)
         self.config(width = width, height = height)
 
+        print deck
         for card in deck:
+            print card
             self.addCard(card)
             
 
@@ -890,6 +886,7 @@ class Game_Hand(Frame):
 
 class Game_Messages(Frame):
     def __init__(self,master):
+        print('A')
         Frame.__init__(self,master)
         self.messageBoxes = []
         i = 0
@@ -1032,8 +1029,10 @@ class Game_Tools(Frame):
         self.buttons = []
         for row in range(3):
             for column in range(4):
-                button = Button(self, text = "Button " + \
-                                str(4*row + column + 1))
+##                # Potentially makes buttons display well on osX?
+                button = Widget(self, 'ttk::button',dict(text = "No"))
+##                button = Button(self, text = "Button " + \
+##                                str(4*row + column + 1))
                 button.grid(row = row, column = column, pady = 2, padx = 2)
                 self.buttons.append(button)
 
@@ -1059,6 +1058,10 @@ class Game_Tools(Frame):
                                command = self.flip)
         self.buttons[11].config(text = "Scry",\
                                command = self.scryButton)
+
+        for b in self.buttons:
+            b.config(width = 1+ max(map(lambda x:len(x),
+                                     b.cget('text').split('\n'))))
 
     def draw(self):
         root.send(DRAW)
@@ -1636,7 +1639,7 @@ class TopWindow(Tk):
         self.listenID = self.after(NETLAG,self.checkNetwork)
 
     def checkNetwork_handlePacket(self,data):
-        #print('Received: '+data)
+        print('Received: '+data)
         # Received a text message
         if data[0:2] == MESSAGE:
             if data[2] == WAITING:
@@ -1672,6 +1675,7 @@ class TopWindow(Tk):
             player = Player(ID, tag)
             self.players[ID]=player
 
+            print(self.ID)
             #If we haven't set our tag yet, this is the first time we're
             #getting this, and it's us.
             if self.ID == None:
@@ -1723,7 +1727,7 @@ class TopWindow(Tk):
         elif data[0:2] == LEAVE:
             ID = data[2:]
             self.players.pop(ID)
-            #print(map(lambda x:x.tag,self.players.values()))
+            print(map(lambda x:x.tag,self.players.values()))
 
             self.updatePlayerBox()
 
@@ -1735,7 +1739,7 @@ class TopWindow(Tk):
             for entry in data:
                 readiness = entry[-1] == "1"
                 ID = entry[0:-1]
-
+                print(ID)
                 # Set the appropriate readiness value
                 self.players[ID].ready = readiness
 
@@ -1750,11 +1754,15 @@ class TopWindow(Tk):
         elif data[0:2] == STARTGAME:
             IDs = data[2:].split(MARK)
 
+            print('a')
             if IDs[0] == self.ID:
+                print('b1')
                 self.game_start(IDs[1])
             elif IDs[1] == self.ID:
+                print('b2')
                 self.game_start(IDs[0])
             else:
+                print('b3')
                 self.chatBox.recvMessage(self.players[IDs[0]].tag + " and "\
                                          + self.players[IDs[1]].tag\
                                          + " have started a game.")
@@ -2081,7 +2089,7 @@ class TopWindow(Tk):
             return
 
     def send(self, data):
-        #print('Sending: '+data)
+        print('Sending: '+data)
         self.clientSock.sendall(data+ENDPACKET)
 
     def showBigCard(self,card):
@@ -2095,6 +2103,7 @@ class TopWindow(Tk):
         try:
             self.playerBox.delete(0,END)
             for player in self.players.values():
+                print('updating player: ' + str(player.ready))
                 if player.ready:
                     self.playerBox.insert(END,player.tag+" (ready)")
                 else:
