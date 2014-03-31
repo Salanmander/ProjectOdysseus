@@ -135,6 +135,10 @@ class Deck_DeckBox(Frame):
 
         self.master.deck_moveToAvail(cardLabel.card)
 
+    def removeAll(self):
+        while self.cardLabels: #True if card labels has any elements
+            self.removeCard(self.cardLabels[0])
+
 class Deck_LandOptions(Frame):
     def __init__(self,master):
         Frame.__init__(self,master)
@@ -177,9 +181,7 @@ class Deck_LandOptions(Frame):
         
     def getLandData(self):
         print("Getting land data")
-        print self.plainsBox.get()
         plains = self.plainsBox.get().zfill(2)
-        print plains
         islands = self.islandBox.get().zfill(2)
         swamps = self.swampBox.get().zfill(2)
         mountains = self.mountainBox.get().zfill(2)
@@ -224,8 +226,14 @@ class Draft_Menu(Menu):
 
         self.add_cascade(label = "File", menu = self.filemenu)
         self.filemenu.add_command(label = "Quit", command = root.quitGame)
-  
-        self.filemenu.add_command(label = "Save Deck", command = savecards.save) # want to pass it root.deck
+
+        # Command is TopWindow.draft_saveDraftedCards
+        self.filemenu.add_command(label = "Save Drafted Cards",
+                                  command = self.master.draft_saveDraftedCards)
+
+        # Command is TopWindow.draft_loadDraftedCards
+        self.filemenu.add_command(label = "Load Drafted Cards",
+                                  command = self.master.draft_loadDraftedCards)
 
 ##        self.gamemenu = Menu(self)
 ##        self.add_cascade(label = "Game", menu = self.gamemenu)
@@ -330,6 +338,10 @@ class Draft_PickedCards(Frame):
     def removeCard(self,cardLabel):
         self.cardLabels.remove(cardLabel)
         cardLabel.destroy()
+
+    def removeAll(self):
+        while self.cardLabels: #True if card labels has any elements
+            self.removeCard(self.cardLabels[0])
         
 
     def enableMoveToDeck(self):
@@ -1861,9 +1873,44 @@ class TopWindow(Tk):
 
         # Get the next pack (if possible)
         self.draft_nextPack()
-        
-        
-        
+
+    def draft_saveDraftedCards(self):
+        toSave = []
+        try:
+            newCards = self.pickedBox.cardLabels
+            for card in newCards:
+                toSave.append(card.card)
+        except:
+            print("Error getting cards from picked box.")
+
+        # If it is currently in the deck-building stage, we also want to save cards
+        # from the deck box.
+        try:
+            newCards = self.deckBox.cardLabels
+            for card in newCards:
+                toSave.append(card.card)
+        except AttributeError: #This will happen if deckBox hasn't been made
+            pass
+        except:
+            print("Unexpected error in TopWindow.draft_saveDraftedCards")
+
+        savecards.save(toSave)
+
+    def draft_loadDraftedCards(self):
+        if not hasattr(self, 'deckBox'):
+            self.chatBox.recvMessage("Can only load draft set after drafting is complete.")
+            return
+            
+        cards = savecards.load()
+        if cards is None:
+            return
+
+        self.deckBox.removeAll()
+        self.pickedBox.removeAll()
+        for cardset in cards:
+            for i in range(cardset['numCopies']):
+                self.pickedBox.addCard(cardset['card'])
+  
     def draft_start(self):
         #for player in self.players.values():
         #    player.ready = False

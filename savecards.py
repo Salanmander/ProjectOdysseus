@@ -2,21 +2,15 @@ from Tkinter import *
 import json
 import tkFileDialog
 
-def save():#(cards):
-  # temporary data for testing. Delete this soon and reinstate the input
-  cards = ['card 1',
-           'card 3',
-           'card 0',
-           'card 3',
-           'card 8',
-           'card 15',
-           'card 8',
-           'card 3']
+def save(cards):
   # make some sort of save dialog??
   f = tkFileDialog.asksaveasfile(mode='w', defaultextension=".json")
   if f is None:
     return
+  saveToFile(cards,f)
 
+
+def saveToFile(cards,f):
   # temporary structure to keep track of what cards we have seen
   tempDict = dict()
   for card in cards:
@@ -42,5 +36,12 @@ def save():#(cards):
   f.close()
   print "Deck saved."
 
-#def load():
+def load():
   # let them pick the file to load
+  f = tkFileDialog.askopenfile(mode='r')
+  if f is None:
+    return None
+  
+  text = f.read()
+  f.close()
+  return json.loads(text)
